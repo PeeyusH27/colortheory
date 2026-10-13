@@ -21,29 +21,42 @@ import type { AnalysisSession } from '@/types/domain';
 import { friendlyError } from '@/utils/errors';
 import { formatDate } from '@/utils/format';
 
-const LOCATION = {
-  device: { label: 'On this device', icon: Smartphone, tone: 'info' as const },
-  cloud: { label: 'Private cloud', icon: Cloud, tone: 'accent' as const },
-  deleted: { label: 'Deleted', icon: ImageOff, tone: 'neutral' as const },
+type Where = 'device' | 'elsewhere' | 'cloud' | 'deleted';
+
+/** Where this portrait actually is, from this phone's point of view. */
+function portraitWhere(session: AnalysisSession): Where {
+  const { location, localUri, storagePath } = session.portrait;
+  if (location === 'cloud' && storagePath) return 'cloud';
+  if (location === 'device') return localUri ? 'device' : 'elsewhere';
+  return 'deleted';
+}
+
+const LOCATION: Record<Where, { label: string; icon: typeof Cloud; tone: 'info' | 'accent' | 'neutral'; body: string }> = {
+  device: { label: 'On this device', icon: Smartphone, tone: 'info', body: 'Stored in this app’s private folder on this phone. Never uploaded.' },
+  elsewhere: {
+    label: 'Not on this device',
+    icon: ImageOff,
+    tone: 'neutral',
+    body: 'Kept only on the phone that took it (or this is a sample analysis without a photo). Nothing is stored in the cloud.',
+  },
+  cloud: { label: 'Private cloud', icon: Cloud, tone: 'accent', body: 'Stored in your private bucket. Only your account can read it.' },
+  deleted: { label: 'Deleted', icon: ImageOff, tone: 'neutral', body: 'The image is gone; colour results are kept.' },
 };
 
 function PortraitRow({ session, onDelete }: { session: AnalysisSession; onDelete: () => void }) {
   const uri = usePortraitUri(session);
-  const loc = LOCATION[session.portrait.location];
+  const where = portraitWhere(session);
+  const loc = LOCATION[where];
   return (
     <View style={styles.row}>
-      <PortraitFrame uri={session.portrait.location === 'deleted' ? null : (uri ?? undefined)} width={84} shadow="offsetSmall" />
+      <PortraitFrame uri={where === 'deleted' ? null : (uri ?? undefined)} width={84} shadow="offsetSmall" />
       <View style={styles.rowCopy}>
         <Text variant="label">{formatDate(session.createdAt, { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
         <Badge label={loc.label} icon={loc.icon} tone={loc.tone} />
         <Text variant="caption" tone="secondary">
-          {session.portrait.location === 'cloud'
-            ? 'Stored in your private bucket. Only your account can read it.'
-            : session.portrait.location === 'device'
-              ? 'Stored in this app’s private folder on this phone. Never uploaded.'
-              : 'The image is gone; colour results are kept.'}
+          {loc.body}
         </Text>
-        {session.portrait.location !== 'deleted' ? (
+        {where === 'device' || where === 'cloud' ? (
           <SecondaryButton label="Delete portrait" icon={Trash2} iconPosition="leading" tone="destructive" size="sm" onPress={onDelete} />
         ) : null}
       </View>
@@ -55,8 +68,8 @@ export default function PortraitsScreen() {
   const analyses = useAnalyses();
   const deletePortrait = useDeletePortrait();
   const [target, setTarget] = useState<AnalysisSession | 'all' | null>(null);
-  const withPortraits = analyses.data?.filter((a) => a.portrait.location !== 'deleted') ?? [];
-  const cloudCount = withPortraits.filter((a) => a.portrait.location === 'cloud').length;
+  const withPortraits = analyses.data?.filter((a) => ['device', 'cloud'].includes(portraitWhere(a))) ?? [];
+  const cloudCount = withPortraits.filter((a) => portraitWhere(a) === 'cloud').length;
 
   const confirm = async () => {
     try {

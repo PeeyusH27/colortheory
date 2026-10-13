@@ -79,7 +79,7 @@ export function ErrorState({
         <Icon size={26} color={inverse ? palette.cream : colors.status.error} strokeWidth={1.8} />
       </View>
       <View style={styles.copy}>
-        <Text variant={compact ? 'h3' : 'h2'} tone={inverse ? 'inverse' : 'primary'} align="center">
+        <Text variant={compact ? 'h3' : 'h2'} tone={inverse ? 'inverse' : 'primary'} align="center" accessibilityRole="header">
           {title ?? copy.title}
         </Text>
         <Text variant="bodyM" tone={inverse ? 'inverseSecondary' : 'secondary'} align="center">

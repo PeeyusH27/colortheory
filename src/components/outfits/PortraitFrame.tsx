@@ -17,6 +17,8 @@ interface PortraitFrameProps {
   shadow?: ShadowToken;
   /** Overlay content (badges, buttons) positioned by the caller. */
   children?: ReactNode;
+  /** Rendered instead of the "unavailable" placeholder when there is no image (e.g. demo data). */
+  placeholder?: ReactNode;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
 }
@@ -32,6 +34,7 @@ export function PortraitFrame({
   caption,
   shadow = 'offsetInk',
   children,
+  placeholder,
   accessibilityLabel = 'Your portrait',
   style,
 }: PortraitFrameProps) {
@@ -51,6 +54,8 @@ export function PortraitFrame({
             accessibilityLabel={accessibilityLabel}
             onError={() => setFailed(true)}
           />
+        ) : placeholder ? (
+          placeholder
         ) : (
           <View style={styles.placeholder} accessible accessibilityLabel="Portrait unavailable">
             <ImageOff size={28} color={palette.slate} />

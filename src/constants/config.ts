@@ -45,7 +45,8 @@ function decodeJwtRole(token: string): string | null {
   const parts = token.split('.');
   if (parts.length !== 3 || !parts[1]) return null;
   try {
-    const json = globalThis.atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const json = globalThis.atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
     const payload = JSON.parse(json) as { role?: unknown };
     return typeof payload.role === 'string' ? payload.role : null;
   } catch {

@@ -16,6 +16,7 @@
     "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.21",
     "expo-crypto": "~57.0.4",
+    "expo-dev-client": "~57.0.20",
     "expo-device": "~57.0.2",
     "expo-file-system": "~57.0.7",
     "expo-font": "~57.0.4",
@@ -52,6 +53,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@testing-library/react-native": "^14.1.0",
     "@types/jest": "29.5.14",
     "@types/react": "~19.2.2",
@@ -73,14 +75,15 @@
     "test:watch": "jest --watch",
     "test:integration": "jest --config jest.integration.config.js --runInBand",
     "doctor": "npx expo-doctor",
-    "verify": "npm run typecheck && npm run lint && npm test"
+    "verify": "npm run typecheck && npm run lint && npm test && npm run test:rls",
+    "test:rls": "node supabase/tests/rls.scenarios.mjs"
   },
   "private": true,
   "jest": {
     "preset": "jest-expo",
     "testPathIgnorePatterns": [
       "/node_modules/",
-      "/supabase/",
+      "<rootDir>/supabase/",
       "\\.integration\\.test\\.ts$"
     ],
     "transformIgnorePatterns": [
@@ -88,6 +91,9 @@
     ],
     "setupFiles": [
       "<rootDir>/jest.setup.ts"
-    ]
+    ],
+    "moduleNameMapper": {
+      "^lucide-react-native$": "<rootDir>/node_modules/lucide-react-native/dist/cjs/lucide-react-native.js"
+    }
   }
 }

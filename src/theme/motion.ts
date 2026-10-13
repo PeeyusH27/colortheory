@@ -59,12 +59,17 @@ export const scales = {
   selected: 1.08,
 } as const;
 
-/** Staggered card/section entrance used by lists and editorial sections. */
+/**
+ * Staggered card/section entrance used by lists and editorial sections.
+ *
+ * Uses the predefined FadeInDown keyframe on purpose: customising it (e.g. `withInitialValues`)
+ * turns it into a custom keyframe, which Reanimated's web backend pins `position: absolute`
+ * after the animation — collapsing the layout.
+ */
 export function enterUp(index = 0, baseDelay = 0) {
   return FadeInDown.duration(durations.slow)
     .delay(baseDelay + index * durations.stagger)
     .easing(easings.decelerate)
-    .withInitialValues({ transform: [{ translateY: 18 }] })
     .reduceMotion(ReduceMotion.System);
 }
 

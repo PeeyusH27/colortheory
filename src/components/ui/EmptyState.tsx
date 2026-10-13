@@ -38,7 +38,7 @@ export function EmptyState({ title, body, actionLabel, onAction, art, accent, co
     <View style={[styles.container, compact && styles.compact, style]}>
       {art ?? <EmptyPaletteArt accent={accent} />}
       <View style={styles.copy}>
-        <Text variant={compact ? 'h3' : 'h2'} align="center">
+        <Text variant={compact ? 'h3' : 'h2'} align="center" accessibilityRole="header">
           {title}
         </Text>
         {body ? (

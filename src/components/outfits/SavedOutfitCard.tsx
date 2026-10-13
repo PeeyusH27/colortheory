@@ -44,9 +44,11 @@ export function SavedOutfitCard({ saved, width, onOpen, onRemove }: SavedOutfitC
         ) : (
           <View style={[styles.fallback, { height: width, backgroundColor: preview.garmentHex }]} />
         )}
-        <View style={styles.badge} pointerEvents="none">
-          <ProvenanceBadge kind={preview.isDemo ? 'demo' : preview.mode === 'ai' ? 'ai' : 'drape'} />
-        </View>
+        {preview.isDemo || preview.mode === 'ai' ? (
+          <View style={styles.badge} pointerEvents="none">
+            <ProvenanceBadge kind={preview.isDemo ? 'demo' : 'ai'} />
+          </View>
+        ) : null}
         <View style={styles.meta}>
           <Text variant="label" numberOfLines={2}>
             {preview.outfitName}

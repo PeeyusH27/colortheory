@@ -79,6 +79,8 @@ export function useOutfitPreviewGeneration(session: AnalysisSession | null, outf
         },
         {
           signal: ctrl.signal,
+          // The demo provider has no real queue; don't make people wait on fake latency.
+          pollIntervalMs: provider.isDemo ? 600 : 2_500,
           onStatus: (s) => {
             if (s.status === 'queued' || s.status === 'processing') setState({ phase: 'running', status: s.status });
           },

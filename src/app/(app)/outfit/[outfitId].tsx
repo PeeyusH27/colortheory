@@ -174,7 +174,15 @@ export default function OutfitDetailsScreen() {
     if (s.phase === 'running') {
       return (
         <View style={styles.aiBox}>
-          <LoadingState label={s.status === 'queued' ? 'Queued with the try-on service…' : 'Generating your preview — usually 5–20 seconds'} />
+          <LoadingState
+            label={
+              generation.isRemote
+                ? s.status === 'queued'
+                  ? 'Queued with the try-on service…'
+                  : 'Generating your preview — usually 5–20 seconds'
+                : `Demo: simulating the ${s.status === 'queued' ? 'queue' : 'generation'} step…`
+            }
+          />
           <TextButton label="Cancel" onPress={generation.cancel} style={styles.center} />
         </View>
       );
@@ -285,9 +293,13 @@ export default function OutfitDetailsScreen() {
             renderItem={({ item }) => (
               <View style={[styles.visual, { width: visualW }]}>
                 {renderVisual(item)}
-                <View style={styles.visualBadge} pointerEvents="none">
-                  <ProvenanceBadge kind={visual === 'ai' && aiDone && item.id === outfit.id ? (aiDone.isDemo ? 'demo' : 'ai') : result.isDemo ? 'demo' : 'drape'} />
-                </View>
+                {visual !== 'outfit' || result.isDemo ? (
+                  <View style={styles.visualBadge} pointerEvents="none">
+                    <ProvenanceBadge
+                      kind={visual === 'ai' && aiDone && item.id === outfit.id ? (aiDone.isDemo ? 'demo' : 'ai') : result.isDemo ? 'demo' : 'drape'}
+                    />
+                  </View>
+                ) : null}
               </View>
             )}
           />

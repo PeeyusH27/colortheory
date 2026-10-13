@@ -20,7 +20,12 @@ interface AnalysisHistoryItemProps {
   onDelete: () => void;
 }
 
-const LOCATION_LABEL = { device: 'Portrait on this device', cloud: 'Portrait in private cloud', deleted: 'Portrait deleted' } as const;
+function locationLabel(session: AnalysisSession) {
+  const { location, localUri } = session.portrait;
+  if (location === 'cloud') return 'Portrait in private cloud';
+  if (location === 'device') return localUri ? 'Portrait on this device' : 'No portrait on this device';
+  return 'Portrait deleted';
+}
 
 export function AnalysisHistoryItem({ session, savedOutfitCount, onOpen, onDelete }: AnalysisHistoryItemProps) {
   const portraitUri = usePortraitUri(session);
@@ -51,7 +56,7 @@ export function AnalysisHistoryItem({ session, savedOutfitCount, onOpen, onDelet
             {savedOutfitCount ? <Badge label={`${savedOutfitCount} saved`} /> : null}
           </View>
           <Text variant="caption" tone="secondary">
-            {LOCATION_LABEL[session.portrait.location]}
+            {locationLabel(session)}
           </Text>
         </View>
       </PressableScale>

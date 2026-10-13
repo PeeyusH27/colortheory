@@ -30,6 +30,7 @@ import { enterUp } from '@/theme/motion';
 import { shadows } from '@/theme/shadows';
 import { spacing } from '@/theme/spacing';
 import { friendlyError } from '@/utils/errors';
+import { pluralize } from '@/utils/format';
 
 function Stat({ value, label }: { value: number | undefined; label: string }) {
   return (
@@ -136,7 +137,7 @@ export default function ProfileScreen() {
 
       <View style={styles.section}>
         <SectionHeader title="Your colours" />
-        <ListRow icon={History} title="Analysis history" subtitle={`${stats.data?.analyses ?? 0} sessions`} onPress={() => router.push('/history')} />
+        <ListRow icon={History} title="Analysis history" subtitle={pluralize(stats.data?.analyses ?? 0, 'session')} onPress={() => router.push('/history')} />
         <ListRow icon={ImageIcon} title="Manage portraits" subtitle="See where each portrait is stored and delete it" onPress={() => router.push('/portraits')} />
         <ListRow icon={BookOpen} title="Revisit the introduction" onPress={() => router.push({ pathname: '/onboarding', params: { revisit: '1' } })} last />
       </View>

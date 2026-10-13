@@ -123,7 +123,9 @@ export default function ResultsScreen() {
   const frameW = Math.min(width * 0.46, 200);
   const panelW = Math.min(112, (width - layout.screenPaddingX * 2) / 3.3);
   const swatchCols = width < 360 ? 2 : 3;
-  const swatchSize = Math.floor((Math.min(width, layout.maxContentWidth) - layout.screenPaddingX * 2 - spacing[2] * (swatchCols - 1)) / swatchCols);
+  const contentW = Math.min(width, layout.maxContentWidth) - layout.screenPaddingX * 2;
+  const swatchSize = Math.floor((contentW - spacing[2] * (swatchCols - 1)) / swatchCols);
+  const neutralSize = Math.floor((contentW - spacing[3] * 3) / 4);
 
   const openColor = (color: ColorRecommendation) => {
     addRecent({ kind: 'color', id: color.hex, label: color.name, hex: color.hex });
@@ -188,7 +190,16 @@ export default function ResultsScreen() {
       </View>
 
       <View style={styles.portraitRow}>
-        <PortraitFrame uri={portraitUri ?? (session.portrait.location === 'deleted' ? null : undefined)} width={frameW} shadow="offsetCoral" />
+        <PortraitFrame
+          uri={portraitUri ?? (session.portrait.location === 'deleted' ? null : undefined)}
+          width={frameW}
+          shadow="offsetCoral"
+          placeholder={
+            result.isDemo ? (
+              <DrapePreview hex={result.recommendedColors[0]?.hex ?? palette.navy} colorName="Sample" width={frameW - 3} height={Math.round(frameW * 1.25) - 3} showLabel={false} />
+            ) : undefined
+          }
+        />
         <View style={styles.sampleCol}>
           {c.sampledHex ? (
             <View style={styles.sample} accessible accessibilityLabel={`Sampled tone ${c.sampledHex}`}>
@@ -271,7 +282,7 @@ export default function ResultsScreen() {
           <SectionHeader index="04" title="Balanced neutrals" subtitle="Your base layer: trousers, outerwear, shoes." />
           <View style={styles.chipRow}>
             {result.neutralColors.map((n) => (
-              <ColorSwatch key={n.id} name={n.name} hex={n.hex} size={Math.floor(swatchSize * 0.72)} onPress={() => openColor(n)} />
+              <ColorSwatch key={n.id} name={n.name} hex={n.hex} size={neutralSize} onPress={() => openColor(n)} />
             ))}
           </View>
         </View>

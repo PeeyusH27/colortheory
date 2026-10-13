@@ -137,6 +137,14 @@ function reasonFor(fit: Fit, p: PaletteParams, role: ColorRecommendation['role']
   return capitalised;
 }
 
+const GARMENT_WORDS: Partial<Record<GarmentCategory, string>> = {
+  trousers: 'trousers',
+  jeans: 'jeans',
+  skirt: 'a skirt',
+  shoes: 'shoes',
+  accessory: 'a bag or scarf',
+};
+
 function experimentalReason(fit: Fit, p: PaletteParams): string {
   const { color } = fit;
   const weakest = [
@@ -144,11 +152,18 @@ function experimentalReason(fit: Fit, p: PaletteParams): string {
     { k: 'depth', v: fit.depthFit },
     { k: 'chroma', v: fit.chromaFit },
   ].sort((a, b) => a.v - b.v)[0]?.k;
-  let why = 'It sits at the edge of your estimated range';
-  if (weakest === 'temp') why = color.temperature > p.lean ? 'It runs warmer than the lean we estimated' : 'It runs cooler than the lean we estimated';
-  else if (weakest === 'depth') why = color.depth > 0.25 + 0.55 * p.depth ? 'It is deeper than your natural depth' : 'It is lighter than your natural depth';
-  else if (weakest === 'chroma') why = color.chroma > 0.25 + 0.55 * p.chroma ? 'It is brighter than the clarity in your photo' : 'It is softer than the clarity in your photo';
-  return `${why}, so wear it away from your face — trousers, shoes or a bag — or pair it with a core colour near your face.`;
+  const lean = undertoneLabel(p.lean).replace('-', ' ');
+  let why = `${color.name} sits at the edge of your estimated range`;
+  if (weakest === 'temp') {
+    why = color.temperature > p.lean ? `${color.name} runs warmer than the ${lean} lean we estimated` : `${color.name} runs cooler than the ${lean} lean we estimated`;
+  } else if (weakest === 'depth') {
+    why = color.depth > 0.25 + 0.55 * p.depth ? `${color.name} is deeper than your natural depth` : `${color.name} is lighter than your natural depth`;
+  } else if (weakest === 'chroma') {
+    why = color.chroma > 0.25 + 0.55 * p.chroma ? `${color.name} is brighter than the clarity in your photo` : `${color.name} is softer than the clarity in your photo`;
+  }
+  const away = color.garments.map((g) => GARMENT_WORDS[g]).filter((w): w is string => Boolean(w));
+  const suggestion = away.length ? `Try it as ${away.slice(0, 2).join(' or ')}` : 'Try it in a small accessory';
+  return `${why}. ${suggestion}, with a core colour near your face.`;
 }
 
 function garmentsFor(color: LibraryColor, role: ColorRecommendation['role']): GarmentCategory[] {

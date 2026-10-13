@@ -47,18 +47,21 @@ export interface ImageQualityIssueInput {
 export interface PixelAnalysis {
   quality: ImageQualityReport;
   face: FaceSample | null;
-  /** Lab a* and b* of near-grey pixels (white-balance cast), or null if too few were found. */
+  /** Median Lab a* and b* of low-saturation background pixels (white-balance cast), or null if too few were found. */
   cast: { a: number; b: number } | null;
 }
 
 const lum = (r: number, g: number, b: number) => (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 
-/** Broad YCbCr skin classifier (after Chai & Ngan), widened to cover a wide range of skin tones. */
+/**
+ * Broad YCbCr skin classifier (after Chai & Ngan), widened to cover a wide range of skin tones,
+ * plus a minimum red–blue separation so neutral greys and whites are never counted as skin.
+ */
 export function isSkinLike(r: number, g: number, b: number) {
   const y = 0.299 * r + 0.587 * g + 0.114 * b;
   const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
   const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
-  return y > 25 && y < 250 && cb >= 70 && cb <= 135 && cr >= 128 && cr <= 182;
+  return y > 25 && y < 250 && cb >= 70 && cb <= 135 && cr >= 133 && cr <= 182 && r - b > 10 && r >= g - 5;
 }
 
 function median(values: number[]) {
@@ -127,19 +130,20 @@ export function analyzePixels(img: PixelImage, original: { width: number; height
       if (Y > 0.97) clipped++;
       if (Y < 0.03) crushed++;
 
+      const inFace = insideEllipse(nx, ny, e);
       const max = Math.max(r, g, b);
       const min = Math.min(r, g, b);
       const sat = max === 0 ? 0 : (max - min) / max;
-      if (sat < 0.12 && Y > 0.2 && Y < 0.92) {
-        // Sample every other near-grey pixel to bound the Lab conversions.
-        if ((x + y) % 2 === 0) {
-          const lab = rgbToLab({ r, g, b });
-          greyA.push(lab.a);
-          greyB.push(lab.b);
-        }
+      // White-balance cast: gray-world estimate over low-saturation pixels *outside* the face
+      // (walls, background, neutral clothing). A warm bulb tints a white wall ~0.2–0.3 saturation,
+      // so the threshold is deliberately not "perfectly grey". Every other pixel bounds the cost.
+      if (!inFace && sat < 0.3 && Y > 0.2 && Y < 0.95 && (x + y) % 2 === 0) {
+        const lab = rgbToLab({ r, g, b });
+        greyA.push(lab.a);
+        greyB.push(lab.b);
       }
 
-      if (insideEllipse(nx, ny, e)) {
+      if (inFace) {
         ellipsePixels++;
         if (isSkinLike(r, g, b)) {
           const lab = rgbToLab({ r, g, b });

@@ -39,7 +39,7 @@ import { enterUp } from '@/theme/motion';
 import { layout, spacing } from '@/theme/spacing';
 import type { SavedPalette } from '@/types/domain';
 import { friendlyError } from '@/utils/errors';
-import { formatRelative } from '@/utils/format';
+import { formatRelative, pluralize } from '@/utils/format';
 
 type Tab = 'palettes' | 'favorites' | 'outfits' | 'recent';
 const TABS = [
@@ -196,7 +196,11 @@ export default function MyColorsScreen() {
   const columnWidth = Math.floor((Math.min(width, layout.maxContentWidth) - layout.screenPaddingX * 2 - spacing[4]) / 2);
   const swatchSize = Math.floor((Math.min(width, layout.maxContentWidth) - layout.screenPaddingX * 2 - spacing[3] * 2) / 3);
 
-  const counts = `${palettes.data?.length ?? 0} palettes · ${favorites.data?.length ?? 0} colours · ${savedOutfits.data?.length ?? 0} outfits`;
+  const counts = [
+    pluralize(palettes.data?.length ?? 0, 'palette'),
+    pluralize(favorites.data?.length ?? 0, 'colour'),
+    pluralize(savedOutfits.data?.length ?? 0, 'outfit'),
+  ].join(' · ');
 
   const renderPalettes = () => {
     if (palettes.isLoading) return <LoadingState label="Loading palettes" />;

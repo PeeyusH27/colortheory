@@ -62,8 +62,10 @@ export function LoadingState({
 }) {
   return (
     <View
+      accessible
       accessibilityRole="progressbar"
       accessibilityLabel={label ?? 'Loading'}
+      accessibilityState={{ busy: true }}
       style={[styles.container, fullScreen && styles.fullScreen, style]}>
       <View style={styles.row}>
         {DOT_COLORS.map((c, i) => (

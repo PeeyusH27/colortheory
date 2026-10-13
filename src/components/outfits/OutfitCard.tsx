@@ -52,9 +52,12 @@ export const OutfitCard = memo(function OutfitCard({
         ) : (
           <OutfitFlatLay pieces={outfit.pieces} size={width - 3} />
         )}
-        <View style={styles.badges} pointerEvents="none">
-          <ProvenanceBadge kind="drape" />
-        </View>
+        {visual === 'drape' ? (
+          // Drapes put colour on the user's photo, so they're labelled as non-AI previews.
+          <View style={styles.badges} pointerEvents="none">
+            <ProvenanceBadge kind="drape" />
+          </View>
+        ) : null}
         <View style={styles.meta}>
           <View style={styles.colorRow}>
             <View style={[styles.dot, { backgroundColor: outfit.mainColor.hex }]} />
