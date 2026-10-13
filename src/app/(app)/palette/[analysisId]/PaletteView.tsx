@@ -8,6 +8,7 @@ import { provenanceOf } from '@/components/analysis/LatestStoryCard';
 import { ColorSwatch } from '@/components/colors/ColorSwatch';
 import { PageHeader, SectionHeader } from '@/components/layout/PageHeader';
 import { OutfitCard } from '@/components/outfits/OutfitCard';
+import { ShopLinks } from '@/components/shop/ShopLinks';
 import { ProvenanceBadge } from '@/components/ui/Badge';
 import { Button, LinkButton } from '@/components/ui/Button';
 import { IconButton } from '@/components/ui/IconButton';
@@ -175,6 +176,17 @@ export function PaletteView() {
           ) : null}
         </div>
       </div>
+
+      {selected ? (
+        <ShopLinks
+          key={selected.id}
+          id="shop"
+          className="page"
+          title={`Shop ${selected.name}`}
+          description="The garments this colour works best in, at your favourite stores."
+          items={selected.garments.slice(0, 3).map((garment) => ({ colorName: selected.name, hex: selected.hex, garment }))}
+        />
+      ) : null}
 
       <section aria-labelledby="wear-title" className="flex flex-col gap-5">
         <SectionHeader

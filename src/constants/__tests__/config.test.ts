@@ -56,4 +56,14 @@ describe('parseConfig', () => {
   it('flags unknown provider names', () => {
     expect(parseConfig({ analysisProvider: 'gpt' }, false).issues[0]).toMatch(/not one of/);
   });
+
+  it('accepts an https affiliate template with {url} and rejects anything else', () => {
+    expect(parseConfig({ shopLinkTemplate: 'https://aff.example/r?u={url}' }, false).shopLinkTemplate).toBe('https://aff.example/r?u={url}');
+    for (const bad of ['http://aff.example/r?u={url}', 'https://aff.example/r', 'javascript:alert(1)//{url}']) {
+      const c = parseConfig({ shopLinkTemplate: bad }, false);
+      expect(c.shopLinkTemplate).toBeNull();
+      expect(c.issues.join(' ')).toMatch(/NEXT_PUBLIC_SHOP_LINK_TEMPLATE/);
+    }
+    expect(parseConfig({}, false).shopLinkTemplate).toBeNull();
+  });
 });

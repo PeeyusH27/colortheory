@@ -5,6 +5,7 @@ import { BookOpen, Brush, Cloud, FileText, History, ImageIcon, LogOut, MonitorSm
 import { useState } from 'react';
 
 import { PageHeader, SectionHeader } from '@/components/layout/PageHeader';
+import { ShopLinkCheck, ShopSettings } from '@/components/shop/ShopSettings';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { InlineAlert } from '@/components/ui/InlineAlert';
 import { ListGroup, ListRow } from '@/components/ui/ListRow';
@@ -130,6 +131,8 @@ export function SettingsView() {
             </ListGroup>
           </section>
 
+          <ShopSettings />
+
           <ListGroup label="Your data">
             <ListRow icon={History} title="Delete analysis history" description="All sessions, portraits and AI previews" destructive onClick={() => setConfirm('history')} />
             <ListRow
@@ -170,6 +173,7 @@ export function SettingsView() {
                 <dt className="text-muted">Demo offered</dt>
                 <dd>{String(config.demoModeEnabled)}</dd>
               </dl>
+              <ShopLinkCheck />
               {config.issues.length ? (
                 <InlineAlert tone="warning" title="Configuration issues">
                   <ul className="list-disc pl-4">

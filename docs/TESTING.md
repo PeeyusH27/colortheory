@@ -4,7 +4,7 @@
 
 | Command | What runs |
 |---|---|
-| `npm test` | 162 Vitest tests in 16 files (jsdom, mocks only) |
+| `npm test` | 176 Vitest tests in 18 files (jsdom, mocks only) |
 | `npm run test:rls` | 55 schema + RLS scenarios on the real migrations (PGlite, no Docker) |
 | `npm run typecheck` | `next typegen` (route types) + `tsc --noEmit` |
 | `npm run lint` | ESLint (`eslint-config-next`, React Compiler rules) |
@@ -27,7 +27,9 @@
 | `services/supabase/__tests__/functions.test.ts` | Edge Function error codes → app errors, schema validation, network/cancel mapping |
 | `services/image-generation/__tests__/generation.test.ts` | Job state walk, provider failure, transient retry, give-up, timeout, cancel, mock demo result, Edge Function status contract |
 | `services/data/__tests__/localRepository.test.ts` | Ordering, cascading delete (portrait, previews, saved outfits) with palettes/favourites detached, portrait-only delete, favourite de-dup, idempotent save, rename/favourite/delete, stats, not-found |
-| `constants/__tests__/config.test.ts` | Runs with no backend, publishable/anon keys, **refuses secret/service-role keys**, provider fallbacks, demo-mode defaults |
+| `constants/__tests__/config.test.ts` | Runs with no backend, publishable/anon keys, **refuses secret/service-role keys**, provider fallbacks, demo-mode defaults, affiliate template validation |
+| `features/shop/__tests__/shopLinks.test.ts` | Store term for every library colour, garment words, **exact search URL per store**, Zara sections, no "for men" on dresses/skirts, encoding and https-only domains, provider order/unknown stores, affiliate wrapping (`sponsored`), stored preferences dropping removed stores |
+| `components/shop/__tests__/ShopLinks.test.tsx` | One row per piece (duplicates merged), `target="_blank"` + `rel="noopener noreferrer"`, accessible link names, audience switch rewrites links, "no stores selected" state |
 | `components/ui/__tests__/states.test.tsx` | Error (friendly copy, retry only when useful, code override), empty, loading (`status`), deletion confirmation phrase + details, consent checkbox, provenance explanations |
 
 ## Integration (real credentials, opt-in)
@@ -79,6 +81,12 @@ demo AI preview, My Colors, Profile, Settings and History. Repeat these after UI
 - Cloud: consent box required; upload progress; results show "Cloud analysis"; without "Keep it in my private cloud storage" no cloud copy remains afterwards (check Storage).
 - Network off mid-upload → retryable error; nothing left behind.
 - Adjust → Warmer/Lighter updates the preview live; Save persists; "As estimated" restores.
+
+### Shopping links
+- Outfit details → "Shop this look": one row per piece; each store opens its own search in a new tab with the colour + garment; switching Women/Men changes the searches (Zara uses its WOMAN/MAN section).
+- Settings → Shopping: untick stores → they disappear everywhere; untick all → "No stores selected".
+- Settings → Developer diagnostics → Store link check (development): click Zara, AJIO, H&M and Uniqlo and confirm each lands on search results.
+- With `NEXT_PUBLIC_SHOP_LINK_TEMPLATE` set: links go through the redirect, carry `rel="sponsored"`, and the disclosure mentions commission.
 
 ### Images and deletion
 - Delete a portrait → image gone (IndexedDB / Storage), results kept.

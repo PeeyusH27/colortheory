@@ -3,11 +3,12 @@
 /* eslint-disable @next/next/no-img-element -- AI previews are short-lived signed URLs from private storage */
 import { Bookmark, BookmarkCheck, ChevronLeft, ChevronRight, RefreshCw, Share2, Sparkles } from 'lucide-react';
 import { useParams } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { PageHeader } from '@/components/layout/PageHeader';
 import { DrapePreview } from '@/components/outfits/DrapePreview';
 import { OutfitFlatLay } from '@/components/outfits/OutfitFlatLay';
+import { ShopLinks } from '@/components/shop/ShopLinks';
 import { Badge, ProvenanceBadge } from '@/components/ui/Badge';
 import { Button, LinkButton } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
@@ -60,6 +61,13 @@ export function OutfitView() {
   const remove = useRemoveSavedOutfit();
   const generation = useOutfitPreviewGeneration(session, outfit);
   const share = useShare();
+  const ready = Boolean(outfit && result);
+
+  // Arriving from a card's "Shop" button (`#shop`): scroll once the outfit has rendered.
+  useEffect(() => {
+    if (!ready || window.location.hash !== '#shop') return;
+    document.getElementById('shop')?.scrollIntoView({ block: 'start' });
+  }, [ready]);
 
   if (!editorial && analysis.isPending) return <LoadingState label="Loading outfit" className="min-h-[50dvh]" />;
   if (!outfit || !result) {
@@ -268,7 +276,7 @@ export function OutfitView() {
       />
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)] lg:gap-14">
-        <div className="flex flex-col gap-4 lg:sticky lg:top-24 lg:self-start">
+        <div className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-24 lg:self-start">
           <SegmentedControl
             label="Preview type"
             value={visual}
@@ -298,7 +306,7 @@ export function OutfitView() {
           {visual === 'ai' ? <div className="animate-fade-in">{aiPanel()}</div> : null}
         </div>
 
-        <div key={outfit.id} className="flex animate-fade-in flex-col gap-8">
+        <div key={outfit.id} className="flex min-w-0 animate-fade-in flex-col gap-8">
           <div className="flex items-center gap-3">
             <span aria-hidden className="size-11 shrink-0 border-[1.5px] border-navy" style={{ backgroundColor: outfit.mainColor.hex }} />
             <span className="flex flex-col">
@@ -326,6 +334,15 @@ export function OutfitView() {
               ))}
             </ul>
           </section>
+
+          <ShopLinks
+            id="shop"
+            title="Shop this look"
+            description="Find each piece in your colours at your favourite stores."
+            items={[...outfit.pieces]
+              .sort((a, b) => (a.role === 'main' ? -1 : b.role === 'main' ? 1 : 0))
+              .map((p) => ({ colorName: p.colorName, hex: p.hex, garment: p.garment, label: p.label }))}
+          />
 
           <section aria-labelledby="occasions-title" className="flex flex-col gap-3">
             <h2 id="occasions-title" className="type-eyebrow text-muted">

@@ -119,6 +119,8 @@ resolves every animation and transition to its final state and stops loops.
 - `components/outfits`: `GarmentIllustration` (shirt, tee, knit, jacket, coat, trousers, jeans,
   skirt, dress, shoes, accessory), `OutfitFlatLay`, `DrapePreview`, `PortraitFrame`,
   `OutfitCard`, `SavedOutfitCard`.
+- `components/shop`: `ShopLinks` (section and compact variants, audience switch, disclosure),
+  `ShopSettings`, `ShopLinkCheck`.
 - `components/camera`: `FaceGuideOverlay`, `CameraTips`, `ImageQualityNotice`.
   `components/analysis`: `AnalysisProgress`, `CharacteristicScale`, `AnalysisHistoryItem`,
   `LatestStoryCard`.

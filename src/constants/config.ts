@@ -26,6 +26,12 @@ export interface AppConfig {
   /** Whether the "Explore in demo mode" entry point is offered on the landing and sign-in pages. */
   demoModeEnabled: boolean;
   legal: { privacyUrl: string | null; termsUrl: string | null };
+  /**
+   * Optional affiliate redirect for "Shop this colour" links, e.g.
+   * `https://network.example/deeplink?id=123&url={url}`. `{url}` is replaced with the encoded store
+   * link. Affiliate ids are public by nature (they appear in every link), so this may be public.
+   */
+  shopLinkTemplate: string | null;
   /** Human-readable configuration problems, surfaced in development UI and the README checks. */
   issues: string[];
 }
@@ -39,6 +45,7 @@ interface RawEnv {
   enableDemoMode?: string;
   privacyUrl?: string;
   termsUrl?: string;
+  shopLinkTemplate?: string;
 }
 
 function decodeJwtRole(token: string): string | null {
@@ -123,6 +130,16 @@ export function parseConfig(raw: RawEnv, isDev: boolean): AppConfig {
   // and in development. Production builds with Supabase hide it unless explicitly enabled.
   const demoModeEnabled = demoFlag ? demoFlag === 'true' : isDev || !supabase;
 
+  const templateRaw = blankToUndefined(raw.shopLinkTemplate);
+  let shopLinkTemplate: string | null = null;
+  if (templateRaw) {
+    if (!/^https:\/\/[^\s]+$/i.test(templateRaw) || !templateRaw.includes('{url}')) {
+      issues.push('NEXT_PUBLIC_SHOP_LINK_TEMPLATE must be an https:// URL containing {url}; shop links are used without it.');
+    } else {
+      shopLinkTemplate = templateRaw;
+    }
+  }
+
   return {
     supabase,
     analysisProvider,
@@ -132,6 +149,7 @@ export function parseConfig(raw: RawEnv, isDev: boolean): AppConfig {
       privacyUrl: blankToUndefined(raw.privacyUrl) ?? null,
       termsUrl: blankToUndefined(raw.termsUrl) ?? null,
     },
+    shopLinkTemplate,
     issues,
   };
 }
@@ -146,6 +164,7 @@ export const config: AppConfig = parseConfig(
     enableDemoMode: process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE,
     privacyUrl: process.env.NEXT_PUBLIC_PRIVACY_URL,
     termsUrl: process.env.NEXT_PUBLIC_TERMS_URL,
+    shopLinkTemplate: process.env.NEXT_PUBLIC_SHOP_LINK_TEMPLATE,
   },
   process.env.NODE_ENV !== 'production',
 );

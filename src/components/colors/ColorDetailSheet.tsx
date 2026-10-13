@@ -7,6 +7,7 @@ import { palette } from '@/theme/colors';
 import type { ColorRecommendation, GarmentCategory } from '@/types/domain';
 import { contrastRatio, darkVariant, lightVariant, readableOn } from '@/utils/color';
 
+import { ShopLinks } from '../shop/ShopLinks';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Sheet } from '../ui/Sheet';
@@ -115,6 +116,13 @@ export function ColorDetailSheet({ color, onClose, isFavorite, onToggleFavorite,
                 ))}
               </div>
             </section>
+          ) : null}
+          {garments.length ? (
+            <ShopLinks
+              variant="compact"
+              title="Shop this colour"
+              items={garments.slice(0, 2).map((garment) => ({ colorName: c.name, hex: c.hex, garment }))}
+            />
           ) : null}
           <section className="flex flex-col gap-2">
             <h3 className="type-eyebrow text-muted">Light &amp; dark variants</h3>

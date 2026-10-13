@@ -26,6 +26,10 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
     body: 'With an account: your email, display name, analysis results (colours and estimated characteristics), saved palettes, favourite colours and saved outfits. In demo mode, everything stays in this browser on this device.',
   },
   {
+    heading: 'Shopping links',
+    body: '“Shop this look” buttons open a store’s own search (for example Myntra, Zara or Westside) in a new tab. The store receives only the search words — such as “navy blue shirt for women” — just as if you had typed them there. Your photo, palette and account are never shared with stores, and ColorTheory does not copy store listings. Which stores you see and who you shop for are saved in this browser only.',
+  },
+  {
     heading: 'Estimates, not diagnoses',
     body: 'Undertone, depth and contrast are visual estimates from one photo. Lighting, camera processing and makeup change colour. Results are styling suggestions, not medical, dermatological or scientific assessments.',
   },

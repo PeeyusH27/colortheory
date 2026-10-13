@@ -5,11 +5,12 @@
 A personal colour-analysis and styling website built with Next.js 16 (App Router), React 19,
 Tailwind CSS 4 and an optional Supabase backend. Take or upload a portrait, get a colour story with
 an explained palette, see each colour draped against your own photo, explore outfits built around
-your colours, and save what you love. It works on phones and desktops.
+your colours, shop each look at stores like Myntra, Zara and Westside, and save what you love. It
+works on phones and desktops.
 
 ![ColorTheory on a phone: landing, Discover, analysis, results, outfit gallery, outfit details](docs/screenshots/overview.jpg)
 
-**Discover → Capture → Analyze → Explore Colors → Preview Outfits → Save Your Style**
+**Discover → Capture → Analyze → Explore Colors → Preview Outfits → Shop & Save Your Style**
 
 ### Principles baked into the code
 
@@ -29,6 +30,7 @@ your colours, and save what you love. It works on phones and desktops.
 - [Configuration](#configuration)
 - [Connecting Supabase](#connecting-supabase)
 - [Enabling AI](#enabling-ai)
+- [Shopping links](#shopping-links)
 - [Scripts](#scripts)
 - [Project structure](#project-structure)
 - [Testing](#testing)
@@ -69,6 +71,7 @@ Copy `.env.example` to `.env.local` (git-ignored). Everything is optional.
 | `NEXT_PUBLIC_OUTFIT_GENERATION` | `mock` | `mock` · `remote` (Edge Function + FASHN) · `off` |
 | `NEXT_PUBLIC_ENABLE_DEMO_MODE` | on without Supabase / in dev | Offer "Explore in demo mode" |
 | `NEXT_PUBLIC_PRIVACY_URL`, `NEXT_PUBLIC_TERMS_URL` | — | Your published legal pages |
+| `NEXT_PUBLIC_SHOP_LINK_TEMPLATE` | — | Optional affiliate redirect for shop links (`https://…{url}…`); links are then marked sponsored and disclosed |
 
 **Public vs secret.** `NEXT_PUBLIC_*` values are inlined into the JavaScript every visitor
 downloads — only values designed to be public go there (the Supabase URL and publishable/anon
@@ -116,6 +119,29 @@ FASHN virtual try-on. The browser only ever calls these through the Edge Functio
 [docs/AI_PROVIDERS.md](docs/AI_PROVIDERS.md) for the provider comparison (pricing, free tiers,
 licensing, retention), quotas and the garment-photo workflow.
 
+## Shopping links
+
+Every outfit, palette colour and colour sheet has **Shop this look / Shop this colour** links into
+each store's own search, built from the user's colours: our editorial colour name is translated to
+an everyday store term (Petrol Blue → "teal blue"), combined with the garment ("blazer", "midi
+skirt", "loafers") and the shopper's choice of All / Women / Men. Stores: Myntra, Zara, Westside,
+AJIO and H&M by default; Uniqlo, Tata CLiQ and Amazon Fashion can be switched on in
+Settings → Shopping.
+
+- **No scraping, no copied listings, no keys.** Myntra, Zara and Westside don't offer public product
+  APIs, and scraping them breaks their terms, so the site links to their search instead. The store
+  receives only the search words.
+- **Store URL formats** were checked on 2026-10-13: Westside, Tata CLiQ and Amazon loaded live;
+  Myntra's format matches real links its search produces; Zara, AJIO, H&M and Uniqlo block
+  automated browsers, so click-test them in Settings → Developer diagnostics → Store link check
+  (development only). Formats live in `src/features/shop/retailers.ts`.
+- **Earning commission:** join an affiliate network that carries the stores (Myntra is available
+  through networks such as vCommission, Cuelinks, EarnKaro and Admitad; Zara has no open
+  programme) and set `NEXT_PUBLIC_SHOP_LINK_TEMPLATE` to the network's deep-link format.
+- **Product cards later:** links are produced by a `ShoppingProvider`
+  (`src/services/shopping/`). A provider backed by an affiliate product feed or a shopping-search
+  API can add `products()` — with its key in a Supabase Edge Function, never in the browser.
+
 ## Scripts
 
 | Script | Does |
@@ -148,8 +174,8 @@ src/
 ├── proxy.ts                     session refresh + optimistic route guard (Next 16 "proxy")
 ├── components/                  ui/, layout/, brand/, colors/, outfits/, camera/, analysis/
 ├── features/                    auth, camera (getUserMedia, canvas), analysis (engines + workflow),
-│                                outfits, colors, data (TanStack Query hooks), profile
-├── services/                    color-analysis, image-generation, data (repositories),
+│                                outfits, colors, shop (stores + search terms), data (TanStack Query hooks), profile
+├── services/                    color-analysis, image-generation, shopping, data (repositories),
 │                                storage (IndexedDB + private buckets), supabase
 ├── lib/                         route guard, Supabase server clients, query client, helpers
 ├── store/  theme/  types/  utils/  constants/  mocks/  test/
@@ -159,10 +185,10 @@ docs/                            architecture, design system, Supabase, AI provi
 
 ## Testing
 
-`npm run verify` runs 162 Vitest tests (colour science against published CIEDE2000 values,
+`npm run verify` runs 176 Vitest tests (colour science against published CIEDE2000 values,
 palette/outfit engines, synthetic-image quality checks, auth flows and email-link handling, the
 route guard, the analysis orchestrator's consent and cleanup rules, provider/Edge Function
-contracts, repositories and shared UI states) plus 55 database scenarios that load the real
+contracts, repositories, store search links and shared UI states) plus 55 database scenarios that load the real
 migrations and act as two users, `anon` and the service role. Credentialed integration tests and
 manual browser scenarios are in [docs/TESTING.md](docs/TESTING.md).
 

@@ -17,6 +17,7 @@ src/features/*               Feature logic: hooks, state machines, engines, feat
 src/services/*               Integrations behind interfaces:
    ├─ color-analysis/        ColorAnalysisProvider: on-device (canvas) | remote | mock
    ├─ image-generation/      OutfitGenerationProvider: remote (FASHN via Edge Function) | mock
+   ├─ shopping/              ShoppingProvider: store-search links (Myntra, Zara, Westside…); product feeds later
    ├─ data/                  DataRepository: LocalRepository (browser) | SupabaseRepository (RLS)
    ├─ storage/               localPortraits (IndexedDB) · portraitStorage (private buckets, signed URLs)
    └─ supabase/              Browser client (@supabase/ssr, cookie session), Edge Function caller
@@ -62,6 +63,7 @@ components inside prerendered shells**:
 | **Original SVG garment illustrations, no stock photos** | Exact recommended hex on every garment, no licensing questions, never mistaken for the user. | Illustrated rather than photographic. Licensed garment photos can be added for true try-on (`garment-references` bucket). |
 | **Repository pattern (Local ↔ Supabase)** | Demo mode and signed-in mode share every page. The local repository mirrors SQL semantics (cascades, detach-on-delete). | Two implementations to keep in sync — covered by tests. |
 | **Zustand for workflow state, TanStack Query for server state** | No duplicated server data. Query keys include the user id (or `local`) so accounts never share cache. Persisted stores use `skipHydration` so the first client render matches the server HTML. | Two state tools, each with a clear job. |
+| **Shop links into store search, not scraped listings** | Myntra, Zara and Westside offer no public product API; scraping breaks their terms and copyright and is brittle. Links send only search words, need no keys and work for every store. | No product photos or prices in our UI, and store colour accuracy varies — the row shows our swatch beside each link. A `ShoppingProvider` can add real product cards from an affiliate feed or shopping API via an Edge Function. |
 | **CSS animation, no animation library** | Entrances, rings, marquee and the landing splash are CSS keyframes on `transform`/`opacity`; `prefers-reduced-motion` collapses them globally. | No physics springs; not needed for this design. |
 | **Native `<dialog>` for sheets** | Focus trap, inert background and Escape for free; slides up on phones, centred on desktop. | Older browsers fall back to a non-modal open dialog. |
 | **Light editorial theme only** | The brand is cream paper + ink; analysis pages use ink panels. | No dark mode yet; tokens are centralised in `globals.css`, so adding one is contained. |
@@ -80,7 +82,7 @@ components inside prerendered shells**:
 | 8 | Results | `/results/[analysisId]` | Reference-inspired; adjust sheet; `?fresh=1` returns home |
 | 9 | Interactive palette | `/palette/[analysisId]` | Swatch selection drives outfits; copy hex; favourites |
 | 10 | Outfit gallery | `/gallery/[analysisId]`, `/outfits` | Drape panels, outfit rail, combinations, complete looks |
-| 11 | Outfit details | `/outfit/[analysisId]/[outfitId]` | Variations; colour drape; AI preview (Mode B); `editorial` for samples |
+| 11 | Outfit details | `/outfit/[analysisId]/[outfitId]` | Variations; colour drape; AI preview (Mode B); "Shop this look" (`#shop`); `editorial` for samples |
 | 12 | My Colors | `/colors` | Palettes, favourites, wardrobe, recent, custom collections |
 | 13 | Profile | `/profile` | Browser-only avatar, stats, account |
 | 14 | History | `/history` | Delete a single session |

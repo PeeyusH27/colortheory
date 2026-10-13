@@ -7,6 +7,7 @@ import { CombinationCard } from '@/components/colors/CombinationCard';
 import { SectionHeader } from '@/components/layout/PageHeader';
 import { DrapePreview } from '@/components/outfits/DrapePreview';
 import { OutfitCard } from '@/components/outfits/OutfitCard';
+import { ShopLinks } from '@/components/shop/ShopLinks';
 import { ProvenanceBadge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { cx } from '@/components/ui/cx';
@@ -178,6 +179,20 @@ export function OutfitGalleryView({ result, analysisId, portraitUri, initialHex 
           an approximation.
         </InlineAlert>
       </section>
+
+      <ShopLinks
+        id="shop"
+        className="page"
+        title={editorial ? 'Shop the sample palette' : 'Shop your palette'}
+        description={
+          editorial
+            ? 'Store searches for the editor’s sample colours. Analyse your look to shop your own.'
+            : 'Your top colours in the garments they suit best. Open any look above for piece-by-piece links.'
+        }
+        items={result.recommendedColors
+          .slice(0, 4)
+          .flatMap((c) => (c.garments[0] ? [{ colorName: c.name, hex: c.hex, garment: c.garments[0] }] : []))}
+      />
     </div>
   );
 }

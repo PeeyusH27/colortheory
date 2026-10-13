@@ -1,11 +1,11 @@
-import { Bookmark, BookmarkCheck, Share2 } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Share2, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 
 import type { Outfit } from '@/types/outfits';
 
 import { ProvenanceBadge } from '../ui/Badge';
 import { cx } from '../ui/cx';
-import { IconButton } from '../ui/IconButton';
+import { IconButton, IconLink } from '../ui/IconButton';
 
 import { DrapePreview } from './DrapePreview';
 import { OutfitFlatLay } from './OutfitFlatLay';
@@ -21,10 +21,12 @@ interface OutfitCardProps {
   onShare?: () => void;
   /** Called when the card is opened (e.g. to record "recently viewed"). */
   onOpen?: () => void;
+  /** Show a "Shop this look" button that jumps to the outfit's store links. Default true. */
+  shop?: boolean;
   className?: string;
 }
 
-export function OutfitCard({ outfit, href, visual = 'flatlay', portraitUri, saved = false, onToggleSave, onShare, onOpen, className }: OutfitCardProps) {
+export function OutfitCard({ outfit, href, visual = 'flatlay', portraitUri, saved = false, onToggleSave, onShare, onOpen, shop = true, className }: OutfitCardProps) {
   return (
     <article className={cx('editorial-frame group flex h-full flex-col bg-paper shadow-offset-sm', className)}>
       <Link href={href} onClick={onOpen} className="flex flex-1 flex-col" aria-label={`${outfit.name}. ${outfit.category}. Open outfit details`}>
@@ -50,7 +52,7 @@ export function OutfitCard({ outfit, href, visual = 'flatlay', portraitUri, save
           <p className="type-body-s line-clamp-3 text-muted">{outfit.reason}</p>
         </div>
       </Link>
-      {onToggleSave || onShare ? (
+      {onToggleSave || onShare || shop ? (
         <div className="flex gap-2 px-4 pt-1 pb-4">
           {onToggleSave ? (
             <IconButton
@@ -64,6 +66,9 @@ export function OutfitCard({ outfit, href, visual = 'flatlay', portraitUri, save
             />
           ) : null}
           {onShare ? <IconButton icon={Share2} label={`Share ${outfit.name}`} onClick={onShare} tone="outline" size={40} iconSize={18} /> : null}
+          {shop ? (
+            <IconLink icon={ShoppingBag} label={`Shop ${outfit.name}`} href={`${href}#shop`} onClick={onOpen} tone="outline" size={40} iconSize={18} className="ml-auto" />
+          ) : null}
         </div>
       ) : null}
     </article>
