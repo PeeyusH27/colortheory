@@ -40,14 +40,14 @@ function Hero({ width, onSample }: { width: number; onSample?: () => void }) {
   return (
     <Animated.View entering={enterUp(0)} style={[styles.hero, shadows.offsetInk]}>
       <View style={styles.heroArt} pointerEvents="none">
-        <View style={[styles.abs, { right: -width * 0.18, top: -width * 0.2 }]}>
-          <Blob seed={11} color={palette.denim} size={width * 0.75} />
+        <View style={[styles.abs, { right: -width * 0.26, top: -width * 0.26 }]}>
+          <Blob seed={11} color={palette.denim} size={width * 0.72} />
         </View>
-        <View style={[styles.abs, { right: width * 0.1, top: width * 0.22 }]}>
-          <Blob seed={41} color={palette.coral} size={width * 0.34} />
+        <View style={[styles.abs, { right: -width * 0.02, top: width * 0.16 }]}>
+          <Blob seed={41} color={palette.coral} size={width * 0.3} />
         </View>
-        <View style={[styles.abs, { right: -width * 0.06, top: width * 0.42 }]}>
-          <Blob seed={53} color={palette.sky} size={width * 0.3} />
+        <View style={[styles.abs, { right: -width * 0.12, top: width * 0.4 }]}>
+          <Blob seed={53} color={palette.sky} size={width * 0.22} />
         </View>
       </View>
       <Text variant="eyebrow" color={palette.sky}>
@@ -97,6 +97,9 @@ export default function DiscoverScreen() {
   const saving = useOutfitSaving(latest?.id ?? null, source.isDemo);
   const firstName = user?.displayName?.split(' ')[0];
   const contentWidth = Math.min(width, layout.maxContentWidth) - layout.screenPaddingX * 2;
+  // Magazine-style section numbers stay sequential whether or not "latest story" is shown.
+  const hasLatest = Boolean(latest?.result);
+  const sectionNo = (n: number) => String(hasLatest ? n : n - 1).padStart(2, '0');
   const queryClient = useQueryClient();
   const repo = useRepository();
 
@@ -157,7 +160,7 @@ export default function DiscoverScreen() {
 
         <Animated.View entering={enterUp(2)} style={styles.section}>
           <SectionHeader
-            index="03"
+            index={sectionNo(3)}
             title="Saved palettes"
             actionLabel={palettes.data?.length ? 'All' : undefined}
             onAction={() => router.push('/colors')}
@@ -195,7 +198,7 @@ export default function DiscoverScreen() {
       )}
 
       <View style={[styles.gutter, styles.section]}>
-        <SectionHeader index="04" title="Trending combinations" subtitle="Curated by the ColorTheory editors." />
+        <SectionHeader index={sectionNo(4)} title="Trending combinations" subtitle="Curated by the ColorTheory editors." />
       </View>
       <FlatList
         horizontal
@@ -208,7 +211,7 @@ export default function DiscoverScreen() {
 
       <View style={[styles.gutter, styles.section]}>
         <SectionHeader
-          index="05"
+          index={sectionNo(5)}
           title="Outfit inspiration"
           subtitle={personal ? 'Built from your latest palette.' : 'Editor’s picks from a sample palette — analyse your look to personalise.'}
           actionLabel="More"
@@ -227,7 +230,7 @@ export default function DiscoverScreen() {
       <View style={[styles.gutter, styles.section]}>
         <View style={[styles.rules, shadows.offsetCoral]}>
           <Text variant="eyebrow" color={palette.sky}>
-            Nº 06 — Manifesto
+            Nº {sectionNo(6)} — Manifesto
           </Text>
           <Text variant="displayL" color={palette.cream} accessibilityRole="header">
             Your colours,{'\n'}
@@ -273,7 +276,7 @@ const styles = StyleSheet.create({
   },
   heroArt: { ...StyleSheet.absoluteFill },
   heroTitle: { marginTop: spacing[2] },
-  heroBody: { maxWidth: 280 },
+  heroBody: { maxWidth: 240 },
   heroActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3], marginTop: spacing[3], alignItems: 'center' },
   section: { marginTop: layout.sectionGap },
   latest: {
