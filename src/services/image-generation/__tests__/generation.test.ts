@@ -13,7 +13,7 @@ const input: OutfitGenerationInput = {
   garmentColorName: 'Navy Blue',
   garmentCategory: 'tops',
   garmentDescription: 'long-sleeve button-down shirt',
-  portraitUri: 'file:///p.jpg',
+  portraitUri: 'local-portrait:a1',
   portraitPath: null,
 };
 
@@ -23,8 +23,8 @@ function scripted(states: (GenerationJobState['status'] | Error)[]): OutfitGener
     id: 'test',
     label: 'Test',
     isDemo: false,
-    start: jest.fn(async () => ({ previewId: 'p1', jobId: 'j1' })),
-    poll: jest.fn(async (): Promise<GenerationJobState> => {
+    start: vi.fn(async () => ({ previewId: 'p1', jobId: 'j1' })),
+    poll: vi.fn(async (): Promise<GenerationJobState> => {
       const next = states[Math.min(i++, states.length - 1)]!;
       if (next instanceof Error) throw next;
       if (next === 'completed') return { status: 'completed', previewId: 'p1', imageUri: 'https://signed', imagePath: 'u/a/p1.png', provider: 'test', isDemo: false };

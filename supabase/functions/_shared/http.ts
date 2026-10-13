@@ -2,10 +2,14 @@
 // Every error response has the shape { error: { code, message } } — the app maps `code` to
 // friendly copy (src/services/supabase/functions.ts).
 
+// The website calls these functions from the browser, so preflight must allow every header the
+// Supabase SDK may send (kept in sync with `@supabase/supabase-js/cors`). `*` is safe here: requests
+// authenticate with a bearer token, never with cookies.
 export const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-retry-count, traceparent, tracestate, baggage',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
 };
 
 export type ErrorCode =

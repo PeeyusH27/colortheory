@@ -1,11 +1,13 @@
+import type { Mock } from 'vitest';
+
 import { createDemoAnalysisResult } from '@/mocks/demoAnalysis';
-import { deleteFileQuietly } from '@/services/storage/localFiles';
+import { deleteLocalPortrait } from '@/services/storage/localPortraits';
 
 import { useLocalDataStore } from '../localDataStore';
 import { LocalRepository } from '../localRepository';
 import type { OutfitPreviewInput } from '../types';
 
-jest.mock('@/services/storage/localFiles', () => ({ deleteFileQuietly: jest.fn() }));
+vi.mock('@/services/storage/localPortraits', () => ({ deleteLocalPortrait: vi.fn(async () => undefined) }));
 
 const repo = new LocalRepository();
 const result = createDemoAnalysisResult({ createdAt: '2026-01-01T00:00:00.000Z' });
@@ -23,14 +25,14 @@ const preview = (analysisId: string | null): OutfitPreviewInput => ({
   isDemo: true,
 });
 
-async function seed(id = 'a1', localUri: string | null = 'file:///docs/portraits/a1.jpg') {
+async function seed(id = 'a1', localUri: string | null = 'local-portrait:a1') {
   await repo.createAnalysis({ id, provider: 'on-device', status: 'processing', portrait: { location: 'device', localUri, storagePath: null }, isDemo: false });
   return repo.updateAnalysis(id, { status: 'completed', result });
 }
 
 beforeEach(() => {
   useLocalDataStore.getState().reset();
-  (deleteFileQuietly as jest.Mock).mockClear();
+  (deleteLocalPortrait as Mock).mockClear();
 });
 
 describe('LocalRepository', () => {
@@ -52,7 +54,7 @@ describe('LocalRepository', () => {
 
     await repo.deleteAnalysis('a1');
 
-    expect(deleteFileQuietly).toHaveBeenCalledWith('file:///docs/portraits/a1.jpg');
+    expect(deleteLocalPortrait).toHaveBeenCalledWith('local-portrait:a1');
     expect(await repo.getAnalysis('a1')).toBeNull();
     expect(await repo.listSavedOutfits()).toEqual([]);
     const [palette] = await repo.listPalettes();

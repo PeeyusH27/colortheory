@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '@/features/auth/authStore';
 import { useRepository } from '@/features/data/queries';
 import { generateOutfitPreview, getOutfitGenerationProvider, type GenerationJobState } from '@/services/image-generation';
+import { readLocalPortrait } from '@/services/storage/localPortraits';
 import { uploadPortrait } from '@/services/storage/portraitStorage';
 import type { AnalysisSession } from '@/types/domain';
 import type { Outfit } from '@/types/outfits';
@@ -50,12 +51,13 @@ export function useOutfitPreviewGeneration(session: AnalysisSession | null, outf
       let portraitPath = session.portrait.storagePath;
       if (isRemote && !hasCloudPortrait) {
         if (!options.consentToUpload) throw new AppError('permission_denied', 'Consent is needed to upload your portrait.');
-        if (!session.portrait.localUri || !user) throw new AppError('not_found', 'The portrait for this analysis is no longer on this device.');
+        const blob = session.portrait.localUri ? await readLocalPortrait(session.portrait.localUri) : null;
+        if (!blob || !user) throw new AppError('not_found', 'The portrait for this analysis is no longer in this browser.');
         setState({ phase: 'uploading', progress: 0 });
         portraitPath = await uploadPortrait({
           userId: user.id,
           analysisId: session.id,
-          fileUri: session.portrait.localUri,
+          blob,
           signal: ctrl.signal,
           onProgress: (progress) => setState({ phase: 'uploading', progress }),
         });

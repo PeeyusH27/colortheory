@@ -1,6 +1,6 @@
 import type { Session, User } from '@supabase/supabase-js';
-import * as Linking from 'expo-linking';
 
+import { setDemoCookie } from '@/lib/demoCookie';
 import { getSupabase, getSupabaseOrNull } from '@/services/supabase/client';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import { AppError } from '@/utils/errors';
@@ -9,8 +9,8 @@ import { mapAuthError } from './authErrors';
 import { useAuthStore, type AuthUser } from './authStore';
 
 /**
- * Auth operations. Screens call these; routing reacts to `useAuthStore` changes through
- * `Stack.Protected` guards, so no screen needs to navigate after sign-in/out itself.
+ * Auth operations. Pages call these; the app shell reacts to `useAuthStore` changes (and
+ * `proxy.ts` guards routes on the server), so no form needs to know where to go after sign-out.
  */
 
 let intentionalSignOut = false;
@@ -32,23 +32,33 @@ function applySession(session: Session | null) {
   const store = useAuthStore.getState();
   if (session?.user) {
     // A real session always wins over demo mode.
-    if (usePreferencesStore.getState().demoMode) usePreferencesStore.getState().setDemoMode(false);
+    if (usePreferencesStore.getState().demoMode) {
+      usePreferencesStore.getState().setDemoMode(false);
+      setDemoCookie(false);
+    }
     store.setSignedIn(toAuthUser(session.user));
   } else if (usePreferencesStore.getState().demoMode) {
+    setDemoCookie(true);
     store.setDemo();
   } else {
     store.setSignedOut();
   }
 }
 
-/** Where email links (verification, password reset) send the user back into the app. */
-export function authRedirectUrl(type?: 'recovery') {
-  return Linking.createURL('/auth-callback', type ? { queryParams: { type } } : undefined);
+/**
+ * Where email links (verification, password reset) return to. The `/auth/callback` route handler
+ * exchanges the one-time code on the server and sets the session cookie.
+ */
+export function authRedirectUrl(options: { type?: 'recovery'; next?: string } = {}) {
+  const url = new URL('/auth/callback', window.location.origin);
+  if (options.type) url.searchParams.set('type', options.type);
+  if (options.next) url.searchParams.set('next', options.next);
+  return url.toString();
 }
 
 /**
- * Restores the persisted session (or demo mode) and subscribes to auth changes.
- * Called once by the root layout after preferences have rehydrated.
+ * Restores the cookie session (or demo mode) and subscribes to auth changes.
+ * Called once by `AppProviders` after preferences have rehydrated.
  */
 export async function initializeAuth(): Promise<void> {
   const supabase = getSupabaseOrNull();
@@ -61,7 +71,7 @@ export async function initializeAuth(): Promise<void> {
     const { data } = await supabase.auth.getSession();
     applySession(data.session);
   } catch {
-    // Corrupt storage or offline refresh: start signed out instead of blocking launch.
+    // Corrupt cookie or offline refresh: start signed out instead of blocking the page.
     applySession(null);
   }
 
@@ -101,7 +111,7 @@ export async function signUpWithEmail(input: { email: string; password: string; 
   const { data, error } = await getSupabase().auth.signUp({
     email: input.email,
     password: input.password,
-    options: { data: { display_name: input.displayName }, emailRedirectTo: authRedirectUrl() },
+    options: { data: { display_name: input.displayName }, emailRedirectTo: authRedirectUrl({ next: '/discover' }) },
   });
   if (error) throw mapAuthError(error);
   // With "Confirm email" enabled (the Supabase default) no session is returned until the link is
@@ -114,13 +124,13 @@ export async function resendVerificationEmail(email: string) {
   const { error } = await getSupabase().auth.resend({
     type: 'signup',
     email,
-    options: { emailRedirectTo: authRedirectUrl() },
+    options: { emailRedirectTo: authRedirectUrl({ next: '/discover' }) },
   });
   if (error) throw mapAuthError(error);
 }
 
 export async function sendPasswordReset(email: string) {
-  const { error } = await getSupabase().auth.resetPasswordForEmail(email, { redirectTo: authRedirectUrl('recovery') });
+  const { error } = await getSupabase().auth.resetPasswordForEmail(email, { redirectTo: authRedirectUrl({ type: 'recovery' }) });
   if (error) throw mapAuthError(error);
 }
 
@@ -140,37 +150,6 @@ export async function updateDisplayName(displayName: string) {
   }
 }
 
-/**
- * Completes an email-link flow. Supports both the PKCE `?code=` format (default for this client)
- * and the implicit `#access_token=…&refresh_token=…` format, in case the project uses it.
- */
-export async function completeAuthFromUrl(url: string): Promise<'signed-in' | 'recovery'> {
-  const supabase = getSupabase();
-  const parsed = new URL(url);
-  const query = parsed.searchParams;
-  const hash = new URLSearchParams(parsed.hash.replace(/^#/, ''));
-  const errorCode = query.get('error_code') ?? hash.get('error_code');
-  if (errorCode) throw mapAuthError({ code: errorCode, message: query.get('error_description') ?? hash.get('error_description') ?? '' });
-
-  const isRecovery = query.get('type') === 'recovery' || hash.get('type') === 'recovery';
-  const code = query.get('code');
-  const accessToken = hash.get('access_token');
-  const refreshToken = hash.get('refresh_token');
-
-  if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) throw mapAuthError(error);
-  } else if (accessToken && refreshToken) {
-    const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
-    if (error) throw mapAuthError(error);
-  } else {
-    throw new AppError('invalid_response', 'This link is incomplete. Request a new one.');
-  }
-
-  if (isRecovery) useAuthStore.getState().setRecoveryPending(true);
-  return isRecovery ? 'recovery' : 'signed-in';
-}
-
 export async function signOut() {
   const supabase = getSupabaseOrNull();
   if (useAuthStore.getState().status === 'demo' || !supabase) {
@@ -178,7 +157,7 @@ export async function signOut() {
     return;
   }
   intentionalSignOut = true;
-  // `local` ends this device's session only; other devices stay signed in.
+  // `local` ends this browser's session only; other devices stay signed in.
   const { error } = await supabase.auth.signOut({ scope: 'local' });
   if (error) {
     intentionalSignOut = false;
@@ -188,17 +167,19 @@ export async function signOut() {
 
 export function enterDemoMode() {
   usePreferencesStore.getState().setDemoMode(true);
+  setDemoCookie(true);
   useAuthStore.getState().setDemo();
 }
 
 export function exitDemoMode() {
   usePreferencesStore.getState().setDemoMode(false);
+  setDemoCookie(false);
   useAuthStore.getState().setSignedOut();
 }
 
 /**
  * Permanently deletes the account. The Edge Function verifies the caller's JWT, removes their
- * storage objects and deletes the auth user (rows cascade). The client never holds the
+ * storage objects and deletes the auth user (rows cascade). The browser never holds the
  * service-role key needed for this.
  */
 export async function deleteAccount() {

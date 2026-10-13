@@ -24,11 +24,11 @@ export function getColorAnalysisProvider(method: AnalysisMethod): ColorAnalysisP
 export function availableAnalysisMethods(options: { signedIn: boolean }): AnalysisMethod[] {
   const methods: AnalysisMethod[] = ['device'];
   if (config.analysisProvider === 'remote' && options.signedIn) methods.push('cloud');
-  if (config.analysisProvider === 'mock' || __DEV__) methods.push('demo');
+  if (config.analysisProvider === 'mock' || process.env.NODE_ENV !== 'production') methods.push('demo');
   return methods;
 }
 
-/** Default method from configuration (`EXPO_PUBLIC_ANALYSIS_PROVIDER`). */
+/** Default method from configuration (`NEXT_PUBLIC_ANALYSIS_PROVIDER`). */
 export function defaultAnalysisMethod(options: { signedIn: boolean }): AnalysisMethod {
   if (config.analysisProvider === 'mock') return 'demo';
   if (config.analysisProvider === 'remote' && options.signedIn) return 'cloud';

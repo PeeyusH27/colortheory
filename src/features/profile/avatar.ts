@@ -1,41 +1,31 @@
-import { File, Paths } from 'expo-file-system';
-import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
-import * as ImagePicker from 'expo-image-picker';
-import { Platform } from 'react-native';
-
-import { deleteFileQuietly } from '@/services/storage/localFiles';
 import { usePreferencesStore } from '@/store/preferencesStore';
+import { AppError } from '@/utils/errors';
+
+const AVATAR_SIZE = 320;
 
 /**
- * Profile picture: picked from the library, cropped square, resized to 320px and kept in the
- * app's private documents folder. It is never uploaded.
+ * Profile picture: a file the user picks, centre-cropped square, resized to 320 px and kept as a
+ * small JPEG data URL in this browser's preferences. It is never uploaded.
  */
-export async function pickAvatar(): Promise<boolean> {
-  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.9 });
-  if (result.canceled || !result.assets[0]) return false;
-
-  const context = ImageManipulator.manipulate(result.assets[0].uri);
-  context.resize({ width: 320, height: null });
-  const rendered = await context.renderAsync();
-  const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.85 });
-  context.release();
-  rendered.release();
-  deleteFileQuietly(result.assets[0].uri);
-
-  if (Platform.OS === 'web') {
-    usePreferencesStore.getState().setAvatarUri(saved.uri);
-    return true;
+export async function setAvatarFromFile(file: Blob): Promise<void> {
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  } catch (error) {
+    throw new AppError('invalid_image', 'We couldn’t read that image. Try a JPEG or PNG photo.', { cause: error });
   }
-  // Unique name so expo-image doesn't serve a cached older avatar.
-  const target = new File(Paths.document, `avatar-${Date.now()}.jpg`);
-  new File(saved.uri).move(target);
-  removeAvatar();
-  usePreferencesStore.getState().setAvatarUri(target.uri);
-  return true;
+  const side = Math.min(bitmap.width, bitmap.height);
+  const canvas = document.createElement('canvas');
+  canvas.width = AVATAR_SIZE;
+  canvas.height = AVATAR_SIZE;
+  const context = canvas.getContext('2d');
+  if (!context) throw new AppError('invalid_image', 'Your browser couldn’t process the image.');
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
+  bitmap.close();
+  usePreferencesStore.getState().setAvatarUri(canvas.toDataURL('image/jpeg', 0.85));
 }
 
 export function removeAvatar() {
-  const current = usePreferencesStore.getState().avatarUri;
-  deleteFileQuietly(current);
   usePreferencesStore.getState().setAvatarUri(null);
 }

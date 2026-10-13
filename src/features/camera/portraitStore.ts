@@ -1,15 +1,17 @@
 import { create } from 'zustand';
 
-import { deleteFileQuietly, isAppOwnedPortrait } from '@/services/storage/localFiles';
-
 /**
  * The portrait currently moving through capture → confirmation → analysis.
  *
- * Deliberately NOT persisted: it's a temporary, sensitive file. Keeping it in memory means
- * ordinary back/forward navigation never loses it, while killing the app discards it.
+ * Deliberately NOT persisted: it's a temporary, sensitive image held in memory as a Blob. Client
+ * navigation between the analyse pages keeps it; a reload or closing the tab discards it.
+ * Nothing here is uploaded — uploads only happen in `runAnalysis` after explicit consent.
  */
 export interface SelectedPortrait {
-  uri: string;
+  /** Resized JPEG with all metadata (EXIF, GPS) stripped by re-encoding. */
+  blob: Blob;
+  /** Object URL for previews; revoked when the portrait is replaced or discarded. */
+  url: string;
   width: number;
   height: number;
   source: 'camera' | 'library';
@@ -19,24 +21,21 @@ export interface SelectedPortrait {
 
 interface PortraitState {
   portrait: SelectedPortrait | null;
-  setPortrait: (portrait: SelectedPortrait) => void;
-  /** Clears the selection and deletes the temporary file (unless it was persisted for history). */
+  setPortrait: (portrait: Omit<SelectedPortrait, 'url'>) => void;
+  /** Clears the selection and frees the in-memory image. */
   discard: () => void;
-  /** Clears the selection without deleting the file (it now belongs to a saved analysis). */
-  release: () => void;
 }
 
 export const usePortraitStore = create<PortraitState>((set, get) => ({
   portrait: null,
   setPortrait: (portrait) => {
     const previous = get().portrait;
-    if (previous && previous.uri !== portrait.uri && !isAppOwnedPortrait(previous.uri)) deleteFileQuietly(previous.uri);
-    set({ portrait });
+    if (previous) URL.revokeObjectURL(previous.url);
+    set({ portrait: { ...portrait, url: URL.createObjectURL(portrait.blob) } });
   },
   discard: () => {
     const current = get().portrait;
-    if (current && !isAppOwnedPortrait(current.uri)) deleteFileQuietly(current.uri);
+    if (current) URL.revokeObjectURL(current.url);
     set({ portrait: null });
   },
-  release: () => set({ portrait: null }),
 }));

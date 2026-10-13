@@ -1,19 +1,16 @@
-import * as Clipboard from 'expo-clipboard';
-import { Copy, Heart, Shirt } from 'lucide-react-native';
-import { StyleSheet, View } from 'react-native';
+'use client';
 
-import { BottomSheet } from '@/components/ui/BottomSheet';
-import { Badge } from '@/components/ui/Badge';
-import { PrimaryButton } from '@/components/ui/PrimaryButton';
-import { SecondaryButton } from '@/components/ui/SecondaryButton';
-import { Text } from '@/components/ui/Text';
-import { toast } from '@/components/ui/Toast';
+import { Copy, Heart, Shirt } from 'lucide-react';
+
 import { findLibraryColorByHex } from '@/features/colors/colorLibrary';
-import { haptics } from '@/lib/haptics';
 import { palette } from '@/theme/colors';
-import { spacing } from '@/theme/spacing';
 import type { ColorRecommendation, GarmentCategory } from '@/types/domain';
 import { contrastRatio, darkVariant, lightVariant, readableOn } from '@/utils/color';
+
+import { Badge } from '../ui/Badge';
+import { Button } from '../ui/Button';
+import { Sheet } from '../ui/Sheet';
+import { toast } from '../ui/Toast';
 
 const GARMENT_LABELS: Record<GarmentCategory, string> = {
   shirt: 'Shirts',
@@ -50,130 +47,99 @@ interface ColorDetailSheetProps {
   onClose: () => void;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
+  favoritePending?: boolean;
   onShowOutfits?: () => void;
 }
 
 function MiniSwatch({ hex, label }: { hex: string; label: string }) {
   return (
-    <View style={styles.mini} accessible accessibilityLabel={`${label} ${hex}`}>
-      <View style={[styles.miniBlock, { backgroundColor: hex }]} />
-      <Text variant="caption" numberOfLines={1}>
-        {label}
-      </Text>
-      <Text variant="hex" tone="secondary" style={styles.miniHex}>
-        {hex}
-      </Text>
-    </View>
+    <div role="img" aria-label={`${label} ${hex}`} className="flex min-w-0 flex-1 flex-col gap-1">
+      <span className="h-12 w-full border border-navy/15" style={{ backgroundColor: hex }} />
+      <span className="type-caption truncate text-navy">{label}</span>
+      <span className="type-hex -mt-1 text-[0.6875rem] text-muted">{hex}</span>
+    </div>
   );
 }
 
-export function ColorDetailSheet({ color, onClose, isFavorite, onToggleFavorite, onShowOutfits }: ColorDetailSheetProps) {
-  const visible = color !== null;
-  const c = color ?? { name: '', hex: '#000000' };
+export function ColorDetailSheet({ color, onClose, isFavorite, onToggleFavorite, favoritePending, onShowOutfits }: ColorDetailSheetProps) {
+  const c = color ?? { name: 'Colour', hex: '#000000' };
   const garments = c.garments ?? findLibraryColorByHex(c.hex)?.garments ?? [];
   const onColor = readableOn(c.hex);
-  const contrastWithCream = contrastRatio(c.hex, palette.cream);
 
   const copyHex = async () => {
-    await Clipboard.setStringAsync(c.hex);
-    haptics.success();
-    toast.success(`${c.hex} copied`);
+    try {
+      await navigator.clipboard.writeText(c.hex);
+      toast.success(`${c.hex} copied`);
+    } catch {
+      toast.error('Copying isn’t allowed here. Select the code and copy it manually.');
+    }
   };
 
   return (
-    <BottomSheet
-      visible={visible}
+    <Sheet
+      open={color !== null}
       onClose={onClose}
-      eyebrow={c.role ? ROLE_LABELS[c.role] : 'Colour'}
       title={c.name}
+      description={c.role ? ROLE_LABELS[c.role] : 'Colour'}
       footer={
-        <View style={styles.footer}>
-          {onToggleFavorite ? (
-            <SecondaryButton
-              label={isFavorite ? 'Favourited' : 'Favourite'}
-              icon={Heart}
-              iconPosition="leading"
-              size="md"
-              onPress={onToggleFavorite}
-              style={styles.flex}
-            />
-          ) : null}
-          {onShowOutfits ? <PrimaryButton label="Outfits" icon={Shirt} iconPosition="leading" size="md" onPress={onShowOutfits} style={styles.flex} /> : null}
-        </View>
+        onToggleFavorite || onShowOutfits ? (
+          <div className="flex gap-3">
+            {onToggleFavorite ? (
+              <Button variant="secondary" icon={Heart} onClick={onToggleFavorite} loading={favoritePending} aria-pressed={isFavorite} className="flex-1">
+                {isFavorite ? 'Favourited' : 'Favourite'}
+              </Button>
+            ) : null}
+            {onShowOutfits ? (
+              <Button icon={Shirt} onClick={onShowOutfits} className="flex-1">
+                Outfits
+              </Button>
+            ) : null}
+          </div>
+        ) : null
       }>
-      {visible ? (
-        <>
-          <View style={[styles.hero, { backgroundColor: c.hex }]}>
-            <Text variant="hex" color={onColor} style={styles.heroHex}>
-              {c.hex}
-            </Text>
-            <SecondaryButton
-              label="Copy hex"
-              icon={Copy}
-              iconPosition="leading"
-              size="sm"
-              tone={onColor === palette.cream ? 'cream' : 'ink'}
-              onPress={() => void copyHex()}
-              accessibilityHint={`Copies ${c.hex} to the clipboard`}
-            />
-          </View>
-          {c.reason ? (
-            <Text variant="bodyM" tone="secondary">
-              {c.reason}
-            </Text>
-          ) : null}
+      {color ? (
+        <div className="flex flex-col gap-6">
+          <div className="editorial-frame flex h-40 items-end justify-between gap-3 p-4" style={{ backgroundColor: c.hex, color: onColor }}>
+            <span className="type-hex text-lg select-all">{c.hex}</span>
+            <Button size="sm" variant="secondary" tone={onColor === palette.cream ? 'cream' : 'ink'} icon={Copy} onClick={() => void copyHex()}>
+              Copy hex
+            </Button>
+          </div>
+          {c.reason ? <p className="type-body-m text-muted">{c.reason}</p> : null}
           {garments.length ? (
-            <View style={styles.block}>
-              <Text variant="eyebrow" tone="secondary">
-                Wear it as
-              </Text>
-              <View style={styles.chips}>
+            <section className="flex flex-col gap-2">
+              <h3 className="type-eyebrow text-muted">Wear it as</h3>
+              <div className="flex flex-wrap gap-2">
                 {garments.map((g) => (
                   <Badge key={g} label={GARMENT_LABELS[g]} />
                 ))}
-              </View>
-            </View>
+              </div>
+            </section>
           ) : null}
-          <View style={styles.block}>
-            <Text variant="eyebrow" tone="secondary">
-              Light & dark variants
-            </Text>
-            <View style={styles.row}>
+          <section className="flex flex-col gap-2">
+            <h3 className="type-eyebrow text-muted">Light &amp; dark variants</h3>
+            <div className="flex gap-3">
               <MiniSwatch hex={lightVariant(c.hex)} label="Lighter" />
               <MiniSwatch hex={c.hex} label="Base" />
               <MiniSwatch hex={darkVariant(c.hex)} label="Deeper" />
-            </View>
-          </View>
+            </div>
+          </section>
           {c.pairings?.length ? (
-            <View style={styles.block}>
-              <Text variant="eyebrow" tone="secondary">
-                Pairs well with
-              </Text>
-              <View style={styles.row}>
+            <section className="flex flex-col gap-2">
+              <h3 className="type-eyebrow text-muted">Pairs well with</h3>
+              <div className="flex gap-3">
                 {c.pairings.map((hex) => (
                   <MiniSwatch key={hex} hex={hex} label={findLibraryColorByHex(hex)?.name ?? 'Pairing'} />
                 ))}
-              </View>
-            </View>
+              </div>
+            </section>
           ) : null}
-          <Text variant="caption" tone="secondary">
-            Contrast with cream text: {contrastWithCream.toFixed(1)}:1 · On-screen colour varies by display and brightness.
-          </Text>
-        </>
+          <p className="type-caption text-muted">
+            Contrast with cream text: {contrastRatio(c.hex, palette.cream).toFixed(1)}:1 · On-screen colour varies by display and
+            brightness.
+          </p>
+        </div>
       ) : null}
-    </BottomSheet>
+    </Sheet>
   );
 }
-
-const styles = StyleSheet.create({
-  hero: { height: 150, padding: spacing[4], justifyContent: 'space-between', borderWidth: 1.5, borderColor: palette.navy },
-  heroHex: { fontSize: 20, lineHeight: 26 },
-  block: { gap: spacing[2] },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  row: { flexDirection: 'row', gap: spacing[3] },
-  mini: { flex: 1, gap: 4, maxWidth: 110 },
-  miniBlock: { height: 52, borderWidth: 1, borderColor: palette.navy },
-  miniHex: { fontSize: 10, lineHeight: 12 },
-  footer: { flexDirection: 'row', gap: spacing[3] },
-  flex: { flex: 1 },
-});

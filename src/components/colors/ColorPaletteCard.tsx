@@ -1,12 +1,9 @@
-import { Heart } from 'lucide-react-native';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Heart } from 'lucide-react';
+import type { ReactNode } from 'react';
 
-import { PressableScale } from '@/components/ui/PressableScale';
-import { Text } from '@/components/ui/Text';
-import { colors as tokens, palette } from '@/theme/colors';
-import { shadows } from '@/theme/shadows';
-import { spacing } from '@/theme/spacing';
 import { formatDate } from '@/utils/format';
+
+import { cx } from '../ui/cx';
 
 import { PaletteStrip } from './PaletteStrip';
 
@@ -16,49 +13,28 @@ interface ColorPaletteCardProps {
   subtitle?: string;
   createdAt?: string;
   isFavorite?: boolean;
-  onPress?: () => void;
-  onLongPress?: () => void;
-  width?: number;
-  style?: StyleProp<ViewStyle>;
+  /** Action buttons rendered in the card footer (rename, favourite, delete…). */
+  actions?: ReactNode;
+  className?: string;
 }
 
 /** Saved-palette card: a stacked colour block over a paper label, like a paint-chip card. */
-export function ColorPaletteCard({ name, colors, subtitle, createdAt, isFavorite, onPress, onLongPress, width = 200, style }: ColorPaletteCardProps) {
+export function ColorPaletteCard({ name, colors, subtitle, createdAt, isFavorite, actions, className }: ColorPaletteCardProps) {
   const lead = colors.slice(0, 6);
   return (
-    <PressableScale
-      onPress={onPress}
-      onLongPress={onLongPress}
-      pressedScale={0.97}
-      accessibilityRole="button"
-      accessibilityLabel={`${name} palette, ${colors.length} colours${isFavorite ? ', favourite' : ''}`}
-      accessibilityHint={onLongPress ? 'Long press for options' : undefined}
-      style={[styles.card, { width }, shadows.offsetSmall, style]}>
-      <View style={styles.blocks}>
-        <View style={[styles.hero, { backgroundColor: lead[0]?.hex ?? palette.sand }]} />
-        <PaletteStrip colors={lead.slice(1)} height={28} style={styles.strip} />
-      </View>
-      <View style={styles.meta}>
-        <View style={styles.titleRow}>
-          <Text variant="h3" numberOfLines={1} style={styles.title}>
-            {name}
-          </Text>
-          {isFavorite ? <Heart size={16} color={palette.coralText} fill={palette.coral} /> : null}
-        </View>
-        <Text variant="caption" tone="secondary" numberOfLines={1}>
+    <article className={cx('editorial-frame flex flex-col bg-paper shadow-offset-sm', className)}>
+      <div aria-hidden className="h-24" style={{ backgroundColor: lead[0]?.hex ?? '#EDE6DA' }} />
+      <PaletteStrip colors={lead.slice(1)} height={26} className="border-x-0" label={`${name}: ${colors.map((c) => c.name).join(', ')}`} />
+      <div className="flex flex-col gap-1 border-t-[1.5px] border-navy p-3">
+        <div className="flex items-center gap-2">
+          <h3 className="type-h3 min-w-0 flex-1 truncate text-navy">{name}</h3>
+          {isFavorite ? <Heart aria-label="Favourite" size={16} className="shrink-0 text-coral-text" fill="#FF6B4A" /> : null}
+        </div>
+        <p className="type-caption truncate text-muted">
           {subtitle ?? `${colors.length} colours${createdAt ? ` · ${formatDate(createdAt)}` : ''}`}
-        </Text>
-      </View>
-    </PressableScale>
+        </p>
+        {actions ? <div className="-mx-1.5 mt-1 flex items-center gap-1">{actions}</div> : null}
+      </div>
+    </article>
   );
 }
-
-const styles = StyleSheet.create({
-  card: { backgroundColor: palette.paper, borderWidth: 1.5, borderColor: palette.navy },
-  blocks: { height: 120 },
-  hero: { flex: 1 },
-  strip: { borderWidth: 0, borderTopWidth: 1, borderColor: palette.navy },
-  meta: { padding: spacing[3], gap: 2, borderTopWidth: 1.5, borderColor: tokens.border.strong },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  title: { flex: 1 },
-});

@@ -1,6 +1,6 @@
 import { getSupabase } from '@/services/supabase/client';
 import { BUCKETS, deleteAnalysisObjects, removeObjects } from '@/services/storage/portraitStorage';
-import { deleteFileQuietly } from '@/services/storage/localFiles';
+import { deleteLocalPortrait } from '@/services/storage/localPortraits';
 import type { Database, Json, Tables } from '@/types/database';
 import type {
   AnalysisSession,
@@ -153,7 +153,7 @@ export class SupabaseRepository implements DataRepository {
     await deleteAnalysisObjects(this.userId, id);
     const { error } = await getSupabase().from('analysis_sessions').delete().eq('id', id);
     if (error) fail(error, 'We couldn’t delete this analysis.');
-    deleteFileQuietly(localUriFor(id));
+    await deleteLocalPortrait(localUriFor(id));
     useLocalPortraitIndex.getState().remove(id);
   }
 
@@ -166,7 +166,7 @@ export class SupabaseRepository implements DataRepository {
     const session = await this.getAnalysis(id);
     if (!session) throw new AppError('not_found', 'Analysis not found.');
     if (session.portrait.storagePath) await removeObjects(BUCKETS.portraits, [session.portrait.storagePath]);
-    deleteFileQuietly(session.portrait.localUri);
+    await deleteLocalPortrait(session.portrait.localUri);
     useLocalPortraitIndex.getState().remove(id);
     await this.updateAnalysis(id, { portrait: { location: 'deleted', storagePath: null, localUri: null } });
   }

@@ -1,37 +1,38 @@
-import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
-import decodeJpeg from 'jpeg-js/lib/decoder';
-
 import type { PixelImage } from '@/features/analysis/imageAnalysis';
-import { deleteFileQuietly } from '@/services/storage/localFiles';
 import { AppError } from '@/utils/errors';
 
-/** Width of the analysis bitmap: large enough for blur/exposure checks, small enough to decode fast. */
+/** Width of the analysis bitmap: large enough for blur/exposure checks, small enough to scan fast. */
 export const SAMPLE_WIDTH = 256;
 
-function base64ToBytes(base64: string): Uint8Array {
-  const binary = globalThis.atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
+/** A portrait to sample: an in-memory Blob, or a same-origin `blob:` URL pointing at one. */
+export type PixelSource = Blob | string;
+
+async function toBlob(source: PixelSource): Promise<Blob> {
+  if (typeof source !== 'string') return source;
+  const response = await fetch(source);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.blob();
 }
 
 /**
- * Downsamples the portrait natively (expo-image-manipulator) and decodes the small JPEG in JS to
- * get raw RGBA pixels. The thumbnail lives only in memory; the temporary file is not kept.
+ * Downsamples the portrait on a canvas and reads its RGBA pixels. Runs entirely in the browser;
+ * the thumbnail exists only in memory.
  */
-export async function samplePixels(uri: string): Promise<PixelImage> {
+export async function samplePixels(source: PixelSource): Promise<PixelImage> {
   try {
-    const context = ImageManipulator.manipulate(uri);
-    context.resize({ width: SAMPLE_WIDTH, height: null });
-    const rendered = await context.renderAsync();
-    const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.92, base64: true });
-    context.release();
-    rendered.release();
-    // The thumbnail is only needed in memory; remove the temporary file straight away.
-    deleteFileQuietly(saved.uri);
-    if (!saved.base64) throw new Error('No pixel data returned');
-    const decoded = decodeJpeg(base64ToBytes(saved.base64), { useTArray: true, formatAsRGBA: true, maxMemoryUsageInMB: 64 });
-    return { width: decoded.width, height: decoded.height, data: decoded.data };
+    const bitmap = await createImageBitmap(await toBlob(source));
+    const width = Math.min(SAMPLE_WIDTH, bitmap.width);
+    const height = Math.max(1, Math.round((bitmap.height * width) / bitmap.width));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' });
+    if (!context) throw new Error('Canvas 2D is unavailable');
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close();
+    const { data } = context.getImageData(0, 0, width, height, { colorSpace: 'srgb' });
+    return { width, height, data };
   } catch (error) {
     throw new AppError('invalid_image', 'We couldn’t read that image.', { cause: error, detail: String(error) });
   }

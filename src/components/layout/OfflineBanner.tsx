@@ -1,51 +1,31 @@
-import { useNetworkState } from 'expo-network';
-import { WifiOff } from 'lucide-react-native';
-import { Platform, StyleSheet, View } from 'react-native';
-import Animated, { FadeInUp, FadeOutUp, ReduceMotion } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+'use client';
 
-import { Text } from '@/components/ui/Text';
-import { palette } from '@/theme/colors';
-import { durations } from '@/theme/motion';
-import { radii } from '@/theme/radii';
-import { spacing } from '@/theme/spacing';
+import { WifiOff } from 'lucide-react';
+import { useSyncExternalStore } from 'react';
 
-/**
- * Global offline indicator. `isConnected === false` is used (not `isInternetReachable`), because
- * reachability is often `undefined` briefly at startup and would flash the banner.
- */
-export function OfflineBanner() {
-  const network = useNetworkState();
-  const insets = useSafeAreaInsets();
-  const offline = Platform.OS !== 'web' && network.isConnected === false;
-  if (!offline) return null;
-
-  return (
-    <View pointerEvents="none" style={[styles.host, { top: insets.top + spacing[1] }]}>
-      <Animated.View
-        entering={FadeInUp.duration(durations.base).reduceMotion(ReduceMotion.System)}
-        exiting={FadeOutUp.duration(durations.quick).reduceMotion(ReduceMotion.System)}
-        accessibilityLiveRegion="polite"
-        accessibilityLabel="You are offline. Items saved on this device are still available."
-        style={styles.pill}>
-        <WifiOff size={14} color={palette.ink} strokeWidth={2.4} />
-        <Text variant="caption" color={palette.ink}>
-          Offline — showing what’s on this device
-        </Text>
-      </Animated.View>
-    </View>
-  );
+function subscribe(callback: () => void) {
+  window.addEventListener('online', callback);
+  window.addEventListener('offline', callback);
+  return () => {
+    window.removeEventListener('online', callback);
+    window.removeEventListener('offline', callback);
+  };
 }
 
-const styles = StyleSheet.create({
-  host: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-    backgroundColor: palette.saffron,
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[1] + 2,
-    borderRadius: radii.pill,
-  },
-});
+/** Shown while the browser reports no connection. Cached lists keep rendering underneath. */
+export function OfflineBanner() {
+  const online = useSyncExternalStore(
+    subscribe,
+    () => navigator.onLine,
+    () => true,
+  );
+  if (online) return null;
+  return (
+    <div role="status" className="bg-ink text-cream">
+      <p className="page type-body-s flex items-center gap-2 py-2">
+        <WifiOff aria-hidden size={16} />
+        You’re offline. Saved results still work; syncing resumes when you reconnect.
+      </p>
+    </div>
+  );
+}

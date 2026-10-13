@@ -1,55 +1,30 @@
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-
-import { Text } from '@/components/ui/Text';
-import { palette } from '@/theme/colors';
-import { spacing } from '@/theme/spacing';
+import { cx } from '../ui/cx';
 
 interface CombinationCardProps {
   name: string;
   hexes: string[];
   note: string;
   tag?: string;
-  width?: number;
-  style?: StyleProp<ViewStyle>;
+  className?: string;
 }
 
 /** Colour combination as overlapping blocks — proportions hint at how much of each to wear. */
-export function CombinationCard({ name, hexes, note, tag, width = 220, style }: CombinationCardProps) {
+export function CombinationCard({ name, hexes, note, tag, className }: CombinationCardProps) {
   const [a, b, c] = hexes;
   return (
-    <View
-      accessible
-      accessibilityLabel={`${name}. ${note}`}
-      style={[styles.card, { width }, style]}>
-      <View style={styles.blocks}>
-        <View style={[styles.main, { backgroundColor: a }]} />
-        <View style={styles.side}>
-          <View style={[styles.secondary, { backgroundColor: b }]} />
-          {c ? <View style={[styles.tertiary, { backgroundColor: c }]} /> : null}
-        </View>
-      </View>
-      <View style={styles.meta}>
-        {tag ? (
-          <Text variant="eyebrow" tone="secondary" style={styles.tag}>
-            {tag}
-          </Text>
-        ) : null}
-        <Text variant="h3">{name}</Text>
-        <Text variant="bodyS" tone="secondary" numberOfLines={2}>
-          {note}
-        </Text>
-      </View>
-    </View>
+    <article className={cx('editorial-frame flex flex-col bg-paper', className)} aria-label={`${name}. ${note}`}>
+      <div aria-hidden className="flex h-32 gap-0">
+        <span className="h-full flex-[3]" style={{ backgroundColor: a }} />
+        <span className="flex flex-[2] flex-col">
+          <span className="flex-[2]" style={{ backgroundColor: b }} />
+          {c ? <span className="flex-1" style={{ backgroundColor: c }} /> : null}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1.5 border-t-[1.5px] border-navy p-4">
+        {tag ? <span className="type-eyebrow text-muted">{tag}</span> : null}
+        <h3 className="type-h3 text-navy">{name}</h3>
+        <p className="type-body-s line-clamp-3 text-muted">{note}</p>
+      </div>
+    </article>
   );
 }
-
-const styles = StyleSheet.create({
-  card: { backgroundColor: palette.paper, borderWidth: 1.5, borderColor: palette.navy },
-  blocks: { flexDirection: 'row', height: 110 },
-  main: { flex: 3 },
-  side: { flex: 2 },
-  secondary: { flex: 3 },
-  tertiary: { flex: 1 },
-  meta: { padding: spacing[3], gap: 4, borderTopWidth: 1.5, borderColor: palette.navy },
-  tag: { fontSize: 10 },
-});

@@ -157,13 +157,13 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "colortheory://"
+site_url = "http://localhost:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-# Deep links back into the app for email confirmation / password reset. `exp://**` covers Expo Go
-# during development; remove it for production projects.
-additional_redirect_urls = ["colortheory://**", "exp://**"]
+# Email confirmation / password reset links return to the site's /auth/callback route handler.
+# Add your production origin (https://your-domain/**) in the dashboard for hosted projects.
+additional_redirect_urls = ["http://localhost:3000/**", "http://127.0.0.1:3000/**"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.

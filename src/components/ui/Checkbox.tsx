@@ -1,65 +1,49 @@
-import { Check } from 'lucide-react-native';
-import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Check } from 'lucide-react';
+import { useId, type ReactNode } from 'react';
 
-import { palette } from '@/theme/colors';
-import { radii } from '@/theme/radii';
-import { layout, spacing } from '@/theme/spacing';
-
-import { PressableScale } from './PressableScale';
-import { Text } from './Text';
+import { cx } from './cx';
 
 interface CheckboxProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
-  label: string;
+  label: ReactNode;
   description?: ReactNode;
-  inverse?: boolean;
   disabled?: boolean;
+  className?: string;
 }
 
-/** Explicit opt-in control (used for cloud-processing consent). Never pre-checked by callers. */
-export function Checkbox({ checked, onChange, label, description, inverse, disabled }: CheckboxProps) {
-  const fg = inverse ? palette.cream : palette.navy;
+/** Native checkbox (keyboard + screen-reader semantics for free) with brand styling. */
+export function Checkbox({ checked, onChange, label, description, disabled, className }: CheckboxProps) {
+  const id = useId();
   return (
-    <PressableScale
-      onPress={() => onChange(!checked)}
-      disabled={disabled}
-      haptic="selection"
-      pressedScale={0.98}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked, disabled }}
-      accessibilityLabel={label}
-      style={styles.row}>
-      <View style={[styles.box, { borderColor: fg, backgroundColor: checked ? fg : 'transparent' }]}>
-        {checked ? <Check size={16} color={inverse ? palette.navy : palette.cream} strokeWidth={3} /> : null}
-      </View>
-      <View style={styles.copy}>
-        <Text variant="label" tone={inverse ? 'inverse' : 'primary'}>
+    <div className={cx('flex items-start gap-3', disabled && 'opacity-50', className)}>
+      <span className="relative mt-0.5 flex size-6 shrink-0">
+        <input
+          id={id}
+          type="checkbox"
+          checked={checked}
+          disabled={disabled}
+          aria-describedby={description ? `${id}-desc` : undefined}
+          onChange={(e) => onChange(e.target.checked)}
+          className="peer size-6 cursor-pointer appearance-none rounded-sm border-2 border-navy bg-paper transition-colors checked:bg-navy disabled:cursor-not-allowed"
+        />
+        <Check
+          aria-hidden
+          size={16}
+          strokeWidth={3}
+          className="pointer-events-none absolute top-1 left-1 text-cream opacity-0 transition-opacity peer-checked:opacity-100"
+        />
+      </span>
+      <span className="flex flex-col gap-1">
+        <label htmlFor={id} className="type-label cursor-pointer text-navy">
           {label}
-        </Text>
-        {typeof description === 'string' ? (
-          <Text variant="bodyS" tone={inverse ? 'inverseSecondary' : 'secondary'}>
+        </label>
+        {description ? (
+          <span id={`${id}-desc`} className="type-body-s text-muted">
             {description}
-          </Text>
-        ) : (
-          description
-        )}
-      </View>
-    </PressableScale>
+          </span>
+        ) : null}
+      </span>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: spacing[3], alignItems: 'flex-start', minHeight: layout.minTouchTarget, paddingVertical: spacing[1] },
-  box: {
-    width: 24,
-    height: 24,
-    borderWidth: 2,
-    borderRadius: radii.xs,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 1,
-  },
-  copy: { flex: 1, gap: 2 },
-});

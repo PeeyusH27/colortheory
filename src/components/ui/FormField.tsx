@@ -1,118 +1,69 @@
-import { Eye, EyeOff } from 'lucide-react-native';
-import { useState, type Ref } from 'react';
-import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
-import { useController, type Control, type FieldPath, type FieldValues } from 'react-hook-form';
+'use client';
 
-import { colors, palette } from '@/theme/colors';
-import { shapes } from '@/theme/radii';
-import { layout, spacing } from '@/theme/spacing';
-import { fontFamilies, resolveFontFamily } from '@/theme/typography';
+import { Eye, EyeOff } from 'lucide-react';
+import { useId, useState, type ComponentProps, type ReactNode } from 'react';
 
-import { Text } from './Text';
+import { cx } from './cx';
 
-export interface FormFieldProps extends Omit<TextInputProps, 'style'> {
+interface FormFieldProps extends Omit<ComponentProps<'input'>, 'className'> {
   label: string;
   error?: string;
-  helper?: string;
-  /** Renders a show/hide toggle and keeps the value masked by default. */
-  password?: boolean;
-  ref?: Ref<TextInput>;
+  hint?: ReactNode;
+  /** Adds a show/hide toggle for password inputs. */
+  revealable?: boolean;
+  className?: string;
 }
 
-/** Presentational text field. Errors are announced and linked to the input for screen readers. */
-export function FormField({ label, error, helper, password = false, ref, onFocus, onBlur, ...inputProps }: FormFieldProps) {
-  const [focused, setFocused] = useState(false);
+/**
+ * Labelled text input. Errors are linked with `aria-describedby` and announced when they appear;
+ * `ref` is forwarded (React 19 passes it as a prop) so react-hook-form's `register` works as-is.
+ */
+export function FormField({ label, error, hint, revealable, type = 'text', className, id: idProp, ...input }: FormFieldProps) {
+  const autoId = useId();
+  const id = idProp ?? autoId;
   const [revealed, setRevealed] = useState(false);
-  const borderColor = error ? colors.status.error : focused ? colors.border.focus : colors.border.warm;
+  const describedBy = [hint ? `${id}-hint` : null, error ? `${id}-error` : null].filter(Boolean).join(' ') || undefined;
 
   return (
-    <View style={styles.container}>
-      <Text variant="eyebrow" tone="secondary" nativeID={`${label}-label`}>
+    <div className={cx('flex flex-col gap-1.5', className)}>
+      <label htmlFor={id} className="type-label text-navy">
         {label}
-      </Text>
-      <View style={[styles.inputWrap, { borderColor, borderWidth: focused || error ? 1.5 : 1 }]}>
-        <TextInput
-          ref={ref}
-          accessibilityLabel={label}
-          accessibilityLabelledBy={`${label}-label`}
-          accessibilityHint={error ?? helper}
-          placeholderTextColor={colors.text.tertiary}
-          secureTextEntry={password && !revealed}
-          selectionColor={palette.denim}
-          onFocus={(e) => {
-            setFocused(true);
-            onFocus?.(e);
-          }}
-          onBlur={(e) => {
-            setFocused(false);
-            onBlur?.(e);
-          }}
-          style={[styles.input, resolveFontFamily(fontFamilies.sansRegular)]}
-          maxFontSizeMultiplier={1.5}
-          {...inputProps}
+      </label>
+      <div className="relative">
+        <input
+          id={id}
+          type={revealable && revealed ? 'text' : type}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
+          className={cx(
+            'type-body-l min-h-12 w-full rounded-md border-[1.5px] bg-paper px-4 py-2.5 text-navy placeholder:text-slate',
+            'transition-[border-color,box-shadow] duration-150 outline-none focus:border-denim focus:shadow-[0_0_0_3px_rgb(46_91_137_/_0.18)]',
+            error ? 'border-error' : 'border-line',
+            revealable && 'pr-12',
+          )}
+          {...input}
         />
-        {password ? (
-          <Pressable
-            onPress={() => setRevealed((r) => !r)}
-            accessibilityRole="button"
-            accessibilityLabel={revealed ? 'Hide password' : 'Show password'}
-            hitSlop={8}
-            style={styles.reveal}>
-            {revealed ? <EyeOff size={20} color={colors.text.secondary} /> : <Eye size={20} color={colors.text.secondary} />}
-          </Pressable>
+        {revealable ? (
+          <button
+            type="button"
+            onClick={() => setRevealed((r) => !r)}
+            aria-label={revealed ? 'Hide password' : 'Show password'}
+            aria-pressed={revealed}
+            className="absolute top-1/2 right-1.5 flex size-10 -translate-y-1/2 items-center justify-center rounded-full text-muted hover:bg-sand">
+            {revealed ? <EyeOff aria-hidden size={18} /> : <Eye aria-hidden size={18} />}
+          </button>
         ) : null}
-      </View>
-      {error ? (
-        <Text variant="caption" tone="error" accessibilityLiveRegion="polite" accessibilityRole="alert">
-          {error}
-        </Text>
-      ) : helper ? (
-        <Text variant="caption" tone="secondary">
-          {helper}
-        </Text>
+      </div>
+      {hint && !error ? (
+        <div id={`${id}-hint`} className="type-caption text-muted">
+          {hint}
+        </div>
       ) : null}
-    </View>
+      {error ? (
+        <p id={`${id}-error`} role="alert" className="type-caption text-error">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }
-
-type ControlledFormFieldProps<T extends FieldValues> = Omit<FormFieldProps, 'value' | 'onChangeText' | 'error'> & {
-  control: Control<T>;
-  name: FieldPath<T>;
-};
-
-/** `FormField` bound to react-hook-form. Validation messages come from the Zod schema. */
-export function ControlledFormField<T extends FieldValues>({ control, name, ...props }: ControlledFormFieldProps<T>) {
-  const {
-    field: { ref, value, onChange, onBlur },
-    fieldState: { error },
-  } = useController({ control, name });
-  return (
-    <FormField
-      {...props}
-      ref={ref}
-      value={typeof value === 'string' ? value : ''}
-      onChangeText={onChange}
-      onBlur={onBlur}
-      error={error?.message}
-    />
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { gap: spacing[2] },
-  inputWrap: {
-    ...shapes.input,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: palette.paper,
-    minHeight: layout.minTouchTarget + 8,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16, // ≥16 prevents iOS zoom-on-focus on web and keeps inputs legible.
-    color: colors.text.primary,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-  },
-  reveal: { paddingHorizontal: spacing[3], minHeight: layout.minTouchTarget, justifyContent: 'center' },
-});

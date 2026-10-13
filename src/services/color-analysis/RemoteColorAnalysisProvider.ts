@@ -6,7 +6,7 @@ import { throwIfAborted } from '@/utils/async';
 import { AppError } from '@/utils/errors';
 
 import { QualityGateError } from './QualityGateError';
-import { samplePixels } from './pixelSampler';
+import { samplePixels, type PixelSource } from './pixelSampler';
 import { remoteAnalysisResponseSchema } from './remoteSchema';
 import type { AnalyzeOptions, ColorAnalysisInput, ColorAnalysisProvider } from './types';
 
@@ -24,7 +24,7 @@ export class RemoteColorAnalysisProvider implements ColorAnalysisProvider {
   readonly requiresUpload = true;
 
   constructor(
-    private readonly sampler: (uri: string) => Promise<PixelImage> = samplePixels,
+    private readonly sampler: (source: PixelSource) => Promise<PixelImage> = samplePixels,
     private readonly timeoutMs = 60_000,
   ) {}
 
@@ -35,7 +35,7 @@ export class RemoteColorAnalysisProvider implements ColorAnalysisProvider {
     }
 
     onProgress?.({ stage: 'checking_quality' });
-    const local = analyzePixels(await this.sampler(input.imageUri), { width: input.width, height: input.height });
+    const local = analyzePixels(await this.sampler(input.image), { width: input.width, height: input.height });
     if (local.quality.issues.some((i) => i.severity === 'blocking') && !acceptLowQuality) {
       throw new QualityGateError(local.quality);
     }

@@ -1,18 +1,12 @@
-import { CircleAlert, CircleCheck, Info } from 'lucide-react-native';
+'use client';
+
+import { CircleAlert, CircleCheck, Info, X } from 'lucide-react';
 import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
-import Animated, { FadeInUp, FadeOutUp, ReduceMotion } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { create } from 'zustand';
 
-import { palette } from '@/theme/colors';
 import { durations } from '@/theme/motion';
-import { radii } from '@/theme/radii';
-import { shadows } from '@/theme/shadows';
-import { layout, spacing } from '@/theme/spacing';
 
-import { PressableScale } from './PressableScale';
-import { Text } from './Text';
+import { cx } from './cx';
 
 type ToastTone = 'info' | 'success' | 'error';
 
@@ -20,103 +14,67 @@ interface ToastMessage {
   id: number;
   message: string;
   tone: ToastTone;
-  actionLabel?: string;
-  onAction?: () => void;
 }
 
 interface ToastState {
-  current: ToastMessage | null;
-  show: (message: string, options?: { tone?: ToastTone; actionLabel?: string; onAction?: () => void }) => void;
-  dismiss: () => void;
+  toasts: ToastMessage[];
+  push: (message: string, tone: ToastTone) => void;
+  dismiss: (id: number) => void;
 }
 
 let nextId = 1;
 
-export const useToastStore = create<ToastState>((set) => ({
-  current: null,
-  show: (message, options) =>
-    set({ current: { id: nextId++, message, tone: options?.tone ?? 'info', actionLabel: options?.actionLabel, onAction: options?.onAction } }),
-  dismiss: () => set({ current: null }),
+const useToastStore = create<ToastState>((set) => ({
+  toasts: [],
+  push: (message, tone) => set((s) => ({ toasts: [...s.toasts.slice(-2), { id: nextId++, message, tone }] })),
+  dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }));
 
-/** Imperative API usable from services and event handlers. */
+/** Fire-and-forget confirmations ("Saved to your wardrobe"). Errors that need action use ErrorState. */
 export const toast = {
-  show: (message: string, options?: { actionLabel?: string; onAction?: () => void }) =>
-    useToastStore.getState().show(message, { tone: 'info', ...options }),
-  success: (message: string, options?: { actionLabel?: string; onAction?: () => void }) =>
-    useToastStore.getState().show(message, { tone: 'success', ...options }),
-  error: (message: string, options?: { actionLabel?: string; onAction?: () => void }) =>
-    useToastStore.getState().show(message, { tone: 'error', ...options }),
+  show: (message: string) => useToastStore.getState().push(message, 'info'),
+  success: (message: string) => useToastStore.getState().push(message, 'success'),
+  error: (message: string) => useToastStore.getState().push(message, 'error'),
 };
 
 const ICONS = { info: Info, success: CircleCheck, error: CircleAlert } as const;
-const ACCENTS = { info: palette.sky, success: palette.sage, error: palette.coral } as const;
 
-/** Mounted once in the root layout. Shows one toast at a time; a new toast replaces the old. */
-export function ToastHost() {
-  const current = useToastStore((s) => s.current);
+function ToastItem({ toast: t }: { toast: ToastMessage }) {
   const dismiss = useToastStore((s) => s.dismiss);
-  const insets = useSafeAreaInsets();
-
   useEffect(() => {
-    if (!current) return;
-    const timer = setTimeout(dismiss, durations.toast + (current.actionLabel ? 1800 : 0));
+    const timer = setTimeout(() => dismiss(t.id), t.tone === 'error' ? durations.toast * 1.6 : durations.toast);
     return () => clearTimeout(timer);
-  }, [current, dismiss]);
-
-  if (!current) return null;
-  const Icon = ICONS[current.tone];
-
+  }, [dismiss, t.id, t.tone]);
+  const Icon = ICONS[t.tone];
   return (
-    <View pointerEvents="box-none" style={[styles.host, { top: insets.top + spacing[2] }]}>
-      <Animated.View
-        key={current.id}
-        entering={FadeInUp.duration(durations.base).reduceMotion(ReduceMotion.System)}
-        exiting={FadeOutUp.duration(durations.quick).reduceMotion(ReduceMotion.System)}
-        accessibilityLiveRegion="polite"
-        accessibilityRole="alert"
-        style={[styles.toast, shadows.floating]}>
-        <View style={[styles.accent, { backgroundColor: ACCENTS[current.tone] }]} />
-        <Icon size={18} color={ACCENTS[current.tone]} strokeWidth={2.2} />
-        <Text variant="bodyS" tone="inverse" style={styles.message} numberOfLines={3}>
-          {current.message}
-        </Text>
-        {current.actionLabel ? (
-          <PressableScale
-            onPress={() => {
-              current.onAction?.();
-              dismiss();
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={current.actionLabel}
-            hitSlop={10}
-            style={styles.action}>
-            <Text variant="label" color={palette.sky}>
-              {current.actionLabel}
-            </Text>
-          </PressableScale>
-        ) : null}
-      </Animated.View>
-    </View>
+    <div
+      className={cx(
+        'pointer-events-auto flex w-full max-w-md animate-enter-up items-center gap-3 rounded-md border-[1.5px] border-navy bg-paper py-2.5 pr-2 pl-4 shadow-offset-sm',
+      )}>
+      <Icon aria-hidden size={18} className={cx('shrink-0', t.tone === 'error' ? 'text-error' : t.tone === 'success' ? 'text-success' : 'text-denim')} />
+      <p className="type-body-m flex-1 text-navy">{t.message}</p>
+      <button
+        type="button"
+        onClick={() => dismiss(t.id)}
+        aria-label="Dismiss"
+        className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted hover:bg-sand">
+        <X aria-hidden size={16} />
+      </button>
+    </div>
   );
 }
 
-const styles = StyleSheet.create({
-  host: { position: 'absolute', left: layout.screenPaddingX, right: layout.screenPaddingX, alignItems: 'center' },
-  toast: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3],
-    backgroundColor: palette.ink,
-    borderRadius: radii.md,
-    paddingVertical: spacing[3],
-    paddingLeft: spacing[5],
-    paddingRight: spacing[4],
-    maxWidth: layout.maxContentWidth,
-    width: '100%',
-    overflow: 'hidden',
-  },
-  accent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 6 },
-  message: { flex: 1 },
-  action: { minHeight: 32, justifyContent: 'center' },
-});
+/** Renders queued toasts above the bottom navigation, announced politely to screen readers. */
+export function Toaster() {
+  const toasts = useToastStore((s) => s.toasts);
+  return (
+    <div
+      aria-live="polite"
+      aria-relevant="additions"
+      className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--nav-height)+env(safe-area-inset-bottom)+0.75rem)] z-50 flex flex-col items-center gap-2 px-4 md:bottom-6">
+      {toasts.map((t) => (
+        <ToastItem key={t.id} toast={t} />
+      ))}
+    </div>
+  );
+}

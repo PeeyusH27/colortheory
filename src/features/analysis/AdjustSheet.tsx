@@ -1,12 +1,11 @@
+'use client';
+
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
 
 import { PaletteStrip } from '@/components/colors/PaletteStrip';
-import { BottomSheet } from '@/components/ui/BottomSheet';
-import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { Button } from '@/components/ui/Button';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
-import { Text } from '@/components/ui/Text';
-import { spacing } from '@/theme/spacing';
+import { Sheet } from '@/components/ui/Sheet';
 import type { AnalysisAdjustments, ColorAnalysisResult } from '@/types/domain';
 
 import { adjustResult } from './adjustResult';
@@ -14,7 +13,7 @@ import { adjustResult } from './adjustResult';
 type Step = '-1' | '0' | '1';
 
 interface AdjustSheetProps {
-  visible: boolean;
+  open: boolean;
   result: ColorAnalysisResult;
   saving: boolean;
   onClose: () => void;
@@ -25,28 +24,31 @@ interface AdjustSheetProps {
  * "Disagree with the result" control. Users nudge temperature and depth; the palette preview
  * updates live from the deterministic engine before anything is saved.
  */
-export function AdjustSheet({ visible, result, saving, onClose, onSave }: AdjustSheetProps) {
+export function AdjustSheet({ open, result, saving, onClose, onSave }: AdjustSheetProps) {
+  return (
+    <Sheet open={open} onClose={onClose} title="Adjust your palette" description="Your eye has the final say">
+      {/* Remount on open so the controls start from the saved adjustments. */}
+      {open ? <AdjustBody result={result} saving={saving} onSave={onSave} /> : null}
+    </Sheet>
+  );
+}
+
+function AdjustBody({ result, saving, onSave }: Pick<AdjustSheetProps, 'result' | 'saving' | 'onSave'>) {
   const [warmth, setWarmth] = useState<Step>(String(Math.sign(result.adjustments.warmth)) as Step);
   const [depth, setDepth] = useState<Step>(String(Math.sign(result.adjustments.depth)) as Step);
   const adjustments = { warmth: Number(warmth), depth: Number(depth) };
   const preview = adjustResult(result, adjustments);
 
   return (
-    <BottomSheet
-      visible={visible}
-      onClose={onClose}
-      eyebrow="Your eye has the final say"
-      title="Adjust your palette"
-      footer={<PrimaryButton label="Save adjustments" loading={saving} onPress={() => onSave(adjustments)} fullWidth />}>
-      <Text variant="bodyS" tone="secondary">
-        Photos shift colour. If the result feels off — say, you know cool pinks wash you out — nudge it here. Your original estimate is kept.
-      </Text>
-      <View style={styles.group}>
-        <Text variant="eyebrow" tone="secondary">
-          Temperature
-        </Text>
+    <div className="flex flex-col gap-6">
+      <p className="type-body-s text-muted">
+        Photos shift colour. If the result feels off — say, you know cool pinks wash you out — nudge it here. Your original estimate is
+        kept.
+      </p>
+      <div className="flex flex-col gap-2">
+        <span className="type-eyebrow text-muted">Temperature</span>
         <SegmentedControl
-          accessibilityLabel="Temperature adjustment"
+          label="Temperature adjustment"
           value={warmth}
           onChange={setWarmth}
           options={[
@@ -55,13 +57,11 @@ export function AdjustSheet({ visible, result, saving, onClose, onSave }: Adjust
             { value: '1', label: 'Warmer' },
           ]}
         />
-      </View>
-      <View style={styles.group}>
-        <Text variant="eyebrow" tone="secondary">
-          Depth
-        </Text>
+      </div>
+      <div className="flex flex-col gap-2">
+        <span className="type-eyebrow text-muted">Depth</span>
         <SegmentedControl
-          accessibilityLabel="Depth adjustment"
+          label="Depth adjustment"
           value={depth}
           onChange={setDepth}
           options={[
@@ -70,18 +70,15 @@ export function AdjustSheet({ visible, result, saving, onClose, onSave }: Adjust
             { value: '1', label: 'Deeper' },
           ]}
         />
-      </View>
-      <View style={styles.group}>
-        <Text variant="eyebrow" tone="secondary">
-          Preview
-        </Text>
-        <Text variant="h3">{preview.headline}</Text>
-        <PaletteStrip colors={preview.recommendedColors} height={48} labeled />
-      </View>
-    </BottomSheet>
+      </div>
+      <div className="flex flex-col gap-2" aria-live="polite">
+        <span className="type-eyebrow text-muted">Preview</span>
+        <p className="type-h3 text-navy">{preview.headline}</p>
+        <PaletteStrip colors={preview.recommendedColors} height={48} />
+      </div>
+      <Button fullWidth size="lg" loading={saving} onClick={() => onSave(adjustments)}>
+        Save adjustments
+      </Button>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  group: { gap: spacing[2] },
-});

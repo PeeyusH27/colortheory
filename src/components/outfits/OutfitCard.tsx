@@ -1,106 +1,71 @@
-import { Bookmark, BookmarkCheck, Share2 } from 'lucide-react-native';
-import { memo } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Bookmark, BookmarkCheck, Share2 } from 'lucide-react';
+import Link from 'next/link';
 
-import { ProvenanceBadge } from '@/components/ui/Badge';
-import { IconButton } from '@/components/ui/IconButton';
-import { PressableScale } from '@/components/ui/PressableScale';
-import { Text } from '@/components/ui/Text';
-import { palette } from '@/theme/colors';
-import { shadows } from '@/theme/shadows';
-import { spacing } from '@/theme/spacing';
 import type { Outfit } from '@/types/outfits';
+
+import { ProvenanceBadge } from '../ui/Badge';
+import { cx } from '../ui/cx';
+import { IconButton } from '../ui/IconButton';
 
 import { DrapePreview } from './DrapePreview';
 import { OutfitFlatLay } from './OutfitFlatLay';
 
 interface OutfitCardProps {
   outfit: Outfit;
-  width: number;
+  href: string;
   /** `drape` shows the colour on the user's portrait; `flatlay` shows the illustrated outfit. */
   visual?: 'drape' | 'flatlay';
   portraitUri?: string | null;
   saved?: boolean;
-  onPress?: () => void;
   onToggleSave?: () => void;
   onShare?: () => void;
-  style?: StyleProp<ViewStyle>;
+  /** Called when the card is opened (e.g. to record "recently viewed"). */
+  onOpen?: () => void;
+  className?: string;
 }
 
-export const OutfitCard = memo(function OutfitCard({
-  outfit,
-  width,
-  visual = 'flatlay',
-  portraitUri,
-  saved = false,
-  onPress,
-  onToggleSave,
-  onShare,
-  style,
-}: OutfitCardProps) {
-  const visualHeight = visual === 'drape' ? width * 1.2 : width * 1.12;
+export function OutfitCard({ outfit, href, visual = 'flatlay', portraitUri, saved = false, onToggleSave, onShare, onOpen, className }: OutfitCardProps) {
   return (
-    <View style={[styles.card, { width }, shadows.offsetSmall, style]}>
-      <PressableScale
-        onPress={onPress}
-        pressedScale={0.98}
-        accessibilityRole="button"
-        accessibilityLabel={`${outfit.name}. ${outfit.category}.`}
-        accessibilityHint="Opens outfit details">
-        {visual === 'drape' ? (
-          <DrapePreview hex={outfit.mainColor.hex} colorName={outfit.mainColor.name} portraitUri={portraitUri} width={width - 3} height={visualHeight} />
-        ) : (
-          <OutfitFlatLay pieces={outfit.pieces} size={width - 3} />
-        )}
-        {visual === 'drape' ? (
-          // Drapes put colour on the user's photo, so they're labelled as non-AI previews.
-          <View style={styles.badges} pointerEvents="none">
-            <ProvenanceBadge kind="drape" />
-          </View>
-        ) : null}
-        <View style={styles.meta}>
-          <View style={styles.colorRow}>
-            <View style={[styles.dot, { backgroundColor: outfit.mainColor.hex }]} />
-            <Text variant="eyebrow" tone="secondary" numberOfLines={1} style={styles.flex}>
+    <article className={cx('editorial-frame group flex h-full flex-col bg-paper shadow-offset-sm', className)}>
+      <Link href={href} onClick={onOpen} className="flex flex-1 flex-col" aria-label={`${outfit.name}. ${outfit.category}. Open outfit details`}>
+        <div className="relative">
+          {visual === 'drape' ? (
+            <DrapePreview hex={outfit.mainColor.hex} colorName={outfit.mainColor.name} portraitUri={portraitUri} aspect={1.2} />
+          ) : (
+            <OutfitFlatLay pieces={outfit.pieces} />
+          )}
+          {visual === 'drape' ? (
+            // Drapes put colour on the user's photo, so they're labelled as non-AI previews.
+            <ProvenanceBadge kind="drape" className="absolute top-2 left-2" />
+          ) : null}
+        </div>
+        <div className="flex flex-1 flex-col gap-2 border-t-[1.5px] border-navy p-4 pb-2">
+          <p className="type-eyebrow flex items-center gap-2 text-muted">
+            <span aria-hidden className="size-3 shrink-0 border border-navy" style={{ backgroundColor: outfit.mainColor.hex }} />
+            <span className="truncate">
               {outfit.mainColor.name} · {outfit.category}
-            </Text>
-          </View>
-          <Text variant="h3" numberOfLines={2}>
-            {outfit.name}
-          </Text>
-          <Text variant="bodyS" tone="secondary" numberOfLines={3}>
-            {outfit.reason}
-          </Text>
-        </View>
-      </PressableScale>
+            </span>
+          </p>
+          <h3 className="type-h3 line-clamp-2 text-navy group-hover:underline group-hover:underline-offset-4">{outfit.name}</h3>
+          <p className="type-body-s line-clamp-3 text-muted">{outfit.reason}</p>
+        </div>
+      </Link>
       {onToggleSave || onShare ? (
-        <View style={styles.actions}>
+        <div className="flex gap-2 px-4 pt-1 pb-4">
           {onToggleSave ? (
             <IconButton
               icon={saved ? BookmarkCheck : Bookmark}
-              accessibilityLabel={saved ? `Remove ${outfit.name} from wardrobe` : `Save ${outfit.name} to wardrobe`}
-              onPress={onToggleSave}
-              variant={saved ? 'filled' : 'outline'}
-              selected={saved}
+              label={saved ? `Remove ${outfit.name} from wardrobe` : `Save ${outfit.name} to wardrobe`}
+              pressed={saved}
+              onClick={onToggleSave}
+              tone={saved ? 'solid' : 'outline'}
               size={40}
               iconSize={18}
             />
           ) : null}
-          {onShare ? (
-            <IconButton icon={Share2} accessibilityLabel={`Share ${outfit.name}`} onPress={onShare} variant="outline" size={40} iconSize={18} />
-          ) : null}
-        </View>
+          {onShare ? <IconButton icon={Share2} label={`Share ${outfit.name}`} onClick={onShare} tone="outline" size={40} iconSize={18} /> : null}
+        </div>
       ) : null}
-    </View>
+    </article>
   );
-});
-
-const styles = StyleSheet.create({
-  card: { backgroundColor: palette.paper, borderWidth: 1.5, borderColor: palette.navy },
-  badges: { position: 'absolute', top: spacing[2], left: spacing[2] },
-  meta: { padding: spacing[4], paddingBottom: spacing[2], gap: spacing[2], borderTopWidth: 1.5, borderColor: palette.navy },
-  colorRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  dot: { width: 12, height: 12, borderWidth: 1, borderColor: palette.navy },
-  flex: { flex: 1 },
-  actions: { flexDirection: 'row', gap: spacing[2], paddingHorizontal: spacing[4], paddingBottom: spacing[4], paddingTop: spacing[2] },
-});
+}

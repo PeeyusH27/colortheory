@@ -1,4 +1,4 @@
-import { deleteFileQuietly } from '@/services/storage/localFiles';
+import { deleteLocalPortrait } from '@/services/storage/localPortraits';
 import type { AnalysisSession, CollectionStats, FavoriteColor, OutfitPreview, SavedOutfit, SavedPalette } from '@/types/domain';
 import { AppError } from '@/utils/errors';
 import { createId } from '@/utils/id';
@@ -56,9 +56,8 @@ export class LocalRepository implements DataRepository {
 
   async deleteAnalysis(id: string) {
     const session = state().analyses.find((a) => a.id === id);
-    deleteFileQuietly(session?.portrait.localUri);
+    await deleteLocalPortrait(session?.portrait.localUri);
     const previewIds = new Set(state().previews.filter((p) => p.analysisId === id).map((p) => p.id));
-    state().previews.filter((p) => previewIds.has(p.id)).forEach((p) => deleteFileQuietly(p.imageUri));
     state().set((s) => ({
       analyses: s.analyses.filter((a) => a.id !== id),
       previews: s.previews.filter((p) => !previewIds.has(p.id)),
@@ -75,7 +74,7 @@ export class LocalRepository implements DataRepository {
 
   async deletePortrait(id: string) {
     const session = requireAnalysis(id);
-    deleteFileQuietly(session.portrait.localUri);
+    await deleteLocalPortrait(session.portrait.localUri);
     await this.updateAnalysis(id, { portrait: { location: 'deleted', localUri: null, storagePath: null } });
   }
 

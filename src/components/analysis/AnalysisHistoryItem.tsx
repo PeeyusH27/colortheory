@@ -1,74 +1,60 @@
-import { Trash2 } from 'lucide-react-native';
-import { StyleSheet, View } from 'react-native';
+'use client';
 
-import { PaletteStrip } from '@/components/colors/PaletteStrip';
-import { PortraitFrame } from '@/components/outfits/PortraitFrame';
-import { Badge, ProvenanceBadge } from '@/components/ui/Badge';
-import { IconButton } from '@/components/ui/IconButton';
-import { PressableScale } from '@/components/ui/PressableScale';
-import { Text } from '@/components/ui/Text';
+import { Trash2 } from 'lucide-react';
+import Link from 'next/link';
+
 import { usePortraitUri } from '@/features/data/queries';
-import { palette } from '@/theme/colors';
-import { spacing } from '@/theme/spacing';
+import { isLocalPortraitRef } from '@/services/storage/localPortraits';
+import { routes } from '@/lib/routes';
 import type { AnalysisSession } from '@/types/domain';
 import { formatDate } from '@/utils/format';
 
-interface AnalysisHistoryItemProps {
-  session: AnalysisSession;
-  savedOutfitCount: number;
-  onOpen: () => void;
-  onDelete: () => void;
-}
+import { PaletteStrip } from '../colors/PaletteStrip';
+import { PortraitFrame } from '../outfits/PortraitFrame';
+import { Badge, ProvenanceBadge } from '../ui/Badge';
+import { IconButton } from '../ui/IconButton';
+
+import { provenanceOf } from './LatestStoryCard';
 
 function locationLabel(session: AnalysisSession) {
   const { location, localUri } = session.portrait;
   if (location === 'cloud') return 'Portrait in private cloud';
-  if (location === 'device') return localUri ? 'Portrait on this device' : 'No portrait on this device';
+  if (location === 'device') return isLocalPortraitRef(localUri) ? 'Portrait in this browser' : 'No portrait in this browser';
   return 'Portrait deleted';
 }
 
-export function AnalysisHistoryItem({ session, savedOutfitCount, onOpen, onDelete }: AnalysisHistoryItemProps) {
+export function AnalysisHistoryItem({ session, savedOutfitCount, onDelete }: { session: AnalysisSession; savedOutfitCount: number; onDelete: () => void }) {
   const portraitUri = usePortraitUri(session);
   const result = session.result;
-  const kind = result?.isDemo ? 'demo' : session.provider === 'remote' ? 'remote' : 'device';
+  const date = formatDate(session.createdAt, { day: 'numeric', month: 'long', year: 'numeric' });
+  const title = result?.headline ?? (session.status === 'failed' ? 'Analysis failed' : 'Incomplete analysis');
+
+  const body = (
+    <>
+      <PortraitFrame uri={session.portrait.location === 'deleted' ? null : (portraitUri ?? undefined)} shadow="none" alt="" className="w-20 shrink-0" />
+      <span className="flex min-w-0 flex-1 flex-col gap-2">
+        <span className="type-eyebrow text-muted">{date}</span>
+        <span className="type-label line-clamp-2 text-navy">{title}</span>
+        {result ? <PaletteStrip colors={result.recommendedColors.slice(0, 6)} height={18} /> : null}
+        <span className="flex flex-wrap gap-2">
+          <ProvenanceBadge kind={provenanceOf(session)} />
+          {savedOutfitCount ? <Badge label={`${savedOutfitCount} saved`} /> : null}
+        </span>
+        <span className="type-caption text-muted">{locationLabel(session)}</span>
+      </span>
+    </>
+  );
 
   return (
-    <View style={styles.card}>
-      <PressableScale
-        onPress={onOpen}
-        disabled={!result}
-        pressedScale={0.98}
-        accessibilityRole="button"
-        accessibilityLabel={`Analysis from ${formatDate(session.createdAt)}. ${result?.headline ?? session.status}`}
-        accessibilityHint="Reopens the results"
-        style={styles.row}>
-        <PortraitFrame uri={session.portrait.location === 'deleted' ? null : (portraitUri ?? undefined)} width={76} shadow="none" />
-        <View style={styles.copy}>
-          <Text variant="eyebrow" tone="secondary">
-            {formatDate(session.createdAt, { day: 'numeric', month: 'long', year: 'numeric' })}
-          </Text>
-          <Text variant="label" numberOfLines={2}>
-            {result?.headline ?? (session.status === 'failed' ? 'Analysis failed' : 'Incomplete analysis')}
-          </Text>
-          {result ? <PaletteStrip colors={result.recommendedColors.slice(0, 6)} height={18} /> : null}
-          <View style={styles.badges}>
-            <ProvenanceBadge kind={kind} />
-            {savedOutfitCount ? <Badge label={`${savedOutfitCount} saved`} /> : null}
-          </View>
-          <Text variant="caption" tone="secondary">
-            {locationLabel(session)}
-          </Text>
-        </View>
-      </PressableScale>
-      <IconButton icon={Trash2} accessibilityLabel={`Delete analysis from ${formatDate(session.createdAt)}`} onPress={onDelete} size={40} iconSize={18} style={styles.delete} />
-    </View>
+    <article className="editorial-frame relative bg-paper">
+      {result ? (
+        <Link href={routes.results(session.id)} className="flex gap-4 p-3 pr-14 transition-colors hover:bg-sand/50" aria-label={`Analysis from ${date}. ${title}`}>
+          {body}
+        </Link>
+      ) : (
+        <div className="flex gap-4 p-3 pr-14">{body}</div>
+      )}
+      <IconButton icon={Trash2} label={`Delete analysis from ${date}`} onClick={onDelete} size={40} iconSize={18} className="absolute top-2 right-2" />
+    </article>
   );
 }
-
-const styles = StyleSheet.create({
-  card: { backgroundColor: palette.paper, borderWidth: 1.5, borderColor: palette.navy },
-  row: { flexDirection: 'row', gap: spacing[4], padding: spacing[3], paddingRight: spacing[12] },
-  copy: { flex: 1, gap: spacing[2] },
-  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  delete: { position: 'absolute', top: spacing[2], right: spacing[2] },
-});

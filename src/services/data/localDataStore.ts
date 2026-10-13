@@ -1,13 +1,15 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import type { AnalysisSession, FavoriteColor, OutfitPreview, SavedPalette } from '@/types/domain';
 
 /**
- * On-device persistence for demo mode and for anything that must stay local.
- * Stores analysis *results* and metadata only — portrait files live in the app's document
- * directory (see storage/localFiles.ts) and are referenced by URI.
+ * Browser-local persistence for demo mode and for anything that must stay local.
+ * Stores analysis *results* and metadata only (localStorage) — portrait images live in IndexedDB
+ * (see storage/localPortraits.ts) and are referenced by `local-portrait:{id}`.
+ *
+ * Stores are created with `skipHydration` so the first client render matches the server HTML;
+ * `AppProviders` rehydrates them once on mount, before auth initialises.
  */
 interface LocalDataState {
   analyses: AnalysisSession[];
@@ -32,16 +34,17 @@ export const useLocalDataStore = create<LocalDataState>()(
     }),
     {
       name: 'colortheory.local-data.v1',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => localStorage),
+      skipHydration: true,
       partialize: ({ analyses, palettes, favorites, previews, savedOutfits }) => ({ analyses, palettes, favorites, previews, savedOutfits }),
     },
   ),
 );
 
 /**
- * Maps analysis IDs to portrait files kept on *this* device, for signed-in users who chose
- * "keep portraits on this device". The cloud row stores no device path (it would be meaningless
- * on another phone), so this index fills it in locally.
+ * Maps analysis IDs to portraits kept in *this* browser, for signed-in users who chose "keep
+ * portraits on this device". The cloud row stores no local reference (it would be meaningless in
+ * another browser), so this index fills it in locally.
  */
 interface LocalPortraitIndexState {
   uris: Record<string, string>;
@@ -63,6 +66,6 @@ export const useLocalPortraitIndex = create<LocalPortraitIndexState>()(
         }),
       clear: () => set({ uris: {} }),
     }),
-    { name: 'colortheory.portrait-index.v1', storage: createJSONStorage(() => AsyncStorage) },
+    { name: 'colortheory.portrait-index.v1', storage: createJSONStorage(() => localStorage), skipHydration: true },
   ),
 );

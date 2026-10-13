@@ -61,7 +61,7 @@ export const FRIENDLY_MESSAGES: Record<AppErrorCode, { title: string; body: stri
   },
   offline: {
     title: 'You’re offline',
-    body: 'Reconnect to sync your colours. Anything on this device is still available.',
+    body: 'Reconnect to sync your colours. Anything saved in this browser is still available.',
   },
   timeout: {
     title: 'That took too long',
@@ -99,7 +99,7 @@ export const FRIENDLY_MESSAGES: Record<AppErrorCode, { title: string; body: stri
   },
   permission_denied: {
     title: 'Permission needed',
-    body: 'Allow access in Settings to continue.',
+    body: 'Allow access in your browser’s site settings to continue.',
   },
   not_found: { title: 'Not found', body: 'This item may have been deleted.' },
   invalid_response: {

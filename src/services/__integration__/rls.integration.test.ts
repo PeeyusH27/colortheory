@@ -1,7 +1,7 @@
 /**
  * Two-account Row Level Security check against a real Supabase project.
- * Requires credentials (see jest.integration.config.js); skipped otherwise.
- * Uses only the publishable key and normal user sessions — exactly what the app has.
+ * Requires credentials (see vitest.integration.config.mts); skipped otherwise.
+ * Uses only the publishable key and normal user sessions — exactly what the website has.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 

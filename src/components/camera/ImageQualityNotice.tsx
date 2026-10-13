@@ -1,92 +1,77 @@
-import { CircleCheck, CircleAlert, Info, TriangleAlert } from 'lucide-react-native';
-import { StyleSheet, View } from 'react-native';
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from 'lucide-react';
 
-import { Text } from '@/components/ui/Text';
-import { colors, palette } from '@/theme/colors';
-import { radii } from '@/theme/radii';
-import { spacing } from '@/theme/spacing';
 import type { ImageQualityReport } from '@/types/domain';
 
-interface ImageQualityNoticeProps {
-  report: ImageQualityReport | null;
-  loading?: boolean;
-  inverse?: boolean;
-}
+import { cx } from '../ui/cx';
 
 const SEVERITY = {
-  blocking: { icon: CircleAlert, color: palette.coral, label: 'Needs a retake' },
-  warning: { icon: TriangleAlert, color: palette.saffron, label: 'May affect accuracy' },
-  info: { icon: Info, color: palette.sky, label: 'Note' },
+  info: { icon: Info, label: 'Note', className: 'text-denim' },
+  warning: { icon: TriangleAlert, label: 'Warning', className: 'text-warning' },
+  blocking: { icon: CircleAlert, label: 'Problem', className: 'text-error' },
 } as const;
 
 /**
- * Plain-language photo quality feedback, measured on the device before anything is uploaded.
+ * Plain-language photo quality feedback, measured in the browser before anything is uploaded.
  * We say when a photo isn't good enough instead of producing confident-looking results from it.
  */
-export function ImageQualityNotice({ report, loading, inverse = true }: ImageQualityNoticeProps) {
-  const fg = inverse ? palette.cream : palette.navy;
-  const sub = inverse ? 'rgba(247,243,236,0.75)' : colors.text.secondary;
-
+export function ImageQualityNotice({ report, loading, className }: { report: ImageQualityReport | null; loading?: boolean; className?: string }) {
   if (loading || !report) {
     return (
-      <View style={styles.box} accessibilityLiveRegion="polite">
-        <Text variant="label" color={fg}>
-          Checking photo quality on your device…
-        </Text>
-      </View>
+      <div role="status" className={cx('rounded-md border-[1.5px] border-line-warm bg-paper p-4', className)}>
+        <p className="type-label animate-pulse-soft text-navy">Checking photo quality in your browser…</p>
+      </div>
     );
   }
 
   const score = Math.round(report.score * 100);
   const segments = 10;
   const filled = Math.round(report.score * segments);
-  const meterColor = report.score >= 0.75 ? palette.sage : report.score >= 0.45 ? palette.saffron : palette.coral;
+  const meter = report.score >= 0.75 ? 'bg-sage' : report.score >= 0.45 ? 'bg-saffron' : 'bg-coral';
 
   return (
-    <View style={styles.box} accessibilityLiveRegion="polite">
-      <View style={styles.header}>
-        <Text variant="eyebrow" color={sub}>
+    <section aria-labelledby="quality-title" className={cx('flex flex-col gap-3 rounded-md border-[1.5px] border-navy bg-paper p-4', className)}>
+      <div className="flex items-baseline justify-between">
+        <h3 id="quality-title" className="type-eyebrow text-muted">
           Photo quality
-        </Text>
-        <Text variant="numeric" color={fg} accessibilityLabel={`Photo quality ${score} out of 100`}>
-          {score}/100
-        </Text>
-      </View>
-      <View style={styles.meter} accessibilityElementsHidden>
+        </h3>
+        <p className="type-numeric text-navy">
+          {score}
+          <span className="text-muted">/100</span>
+        </p>
+      </div>
+      <div
+        role="meter"
+        aria-label="Photo quality"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={score}
+        className="flex gap-1">
         {Array.from({ length: segments }, (_, i) => (
-          <View key={i} style={[styles.segment, { backgroundColor: i < filled ? meterColor : 'rgba(247,243,236,0.18)' }]} />
+          <span key={i} className={cx('h-2 flex-1 rounded-xs', i < filled ? meter : 'bg-linen')} />
         ))}
-      </View>
-      {report.issues.length === 0 ? (
-        <View style={styles.issue}>
-          <CircleCheck size={18} color={palette.sage} />
-          <Text variant="bodyS" color={fg} style={styles.flex}>
+      </div>
+      <ul className="flex flex-col gap-2" aria-live="polite">
+        {report.issues.length === 0 ? (
+          <li className="type-body-s flex items-start gap-2 text-navy">
+            <CircleCheck aria-hidden size={18} className="shrink-0 text-success" />
             Even light, clear face area, no strong colour cast. Good to go.
-          </Text>
-        </View>
-      ) : (
-        report.issues.map((issue) => {
-          const s = SEVERITY[issue.severity];
-          const Icon = s.icon;
-          return (
-            <View key={issue.code} style={styles.issue} accessible accessibilityLabel={`${s.label}: ${issue.message}`}>
-              <Icon size={18} color={s.color} />
-              <Text variant="bodyS" color={fg} style={styles.flex}>
-                {issue.message}
-              </Text>
-            </View>
-          );
-        })
-      )}
-    </View>
+          </li>
+        ) : (
+          report.issues.map((issue) => {
+            const s = SEVERITY[issue.severity];
+            const Icon = s.icon;
+            return (
+              <li key={issue.code} className="type-body-s flex items-start gap-2 text-navy">
+                <Icon aria-hidden size={18} className={cx('shrink-0', s.className)} />
+                <span>
+                  <span className="sr-only">{s.label}: </span>
+                  {issue.message}
+                </span>
+              </li>
+            );
+          })
+        )}
+      </ul>
+    </section>
   );
 }
-
-const styles = StyleSheet.create({
-  box: { gap: spacing[3], padding: spacing[4], borderRadius: radii.md, backgroundColor: 'rgba(247,243,236,0.07)', borderWidth: 1, borderColor: 'rgba(247,243,236,0.14)' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  meter: { flexDirection: 'row', gap: 3 },
-  segment: { flex: 1, height: 6, borderRadius: 1 },
-  issue: { flexDirection: 'row', gap: spacing[2], alignItems: 'flex-start' },
-  flex: { flex: 1 },
-});

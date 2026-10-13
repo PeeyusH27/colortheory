@@ -1,3 +1,5 @@
+import type { Mock } from 'vitest';
+
 import { FunctionsFetchError, FunctionsHttpError } from '@supabase/supabase-js';
 import { z } from 'zod';
 
@@ -6,10 +8,10 @@ import { AppError } from '@/utils/errors';
 import { getSupabase } from '../client';
 import { invokeFunction } from '../functions';
 
-jest.mock('../client', () => ({ getSupabase: jest.fn() }));
+vi.mock('../client', () => ({ getSupabase: vi.fn() }));
 
-const invoke = jest.fn();
-(getSupabase as jest.Mock).mockReturnValue({ functions: { invoke } });
+const invoke = vi.fn();
+(getSupabase as Mock).mockReturnValue({ functions: { invoke } });
 
 const schema = z.object({ ok: z.literal(true) });
 
@@ -17,7 +19,9 @@ function httpError(status: number, body: unknown) {
   return new FunctionsHttpError(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }));
 }
 
-beforeEach(() => invoke.mockReset());
+beforeEach(() => {
+  invoke.mockReset();
+});
 
 describe('invokeFunction', () => {
   it('returns schema-validated data', async () => {

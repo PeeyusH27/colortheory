@@ -1,84 +1,78 @@
-import { useState } from 'react';
-import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
-import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
+'use client';
 
-import { colors, palette } from '@/theme/colors';
-import { springs } from '@/theme/motion';
-import { radii } from '@/theme/radii';
-import { layout, spacing } from '@/theme/spacing';
+import { useId, useRef, type KeyboardEvent } from 'react';
 
-import { PressableScale } from './PressableScale';
-import { Text } from './Text';
+import { cx } from './cx';
+
+interface Option<T extends string> {
+  value: T;
+  label: string;
+}
 
 interface SegmentedControlProps<T extends string> {
-  options: readonly { value: T; label: string }[];
+  label: string;
+  options: readonly Option<T>[];
   value: T;
   onChange: (value: T) => void;
-  accessibilityLabel: string;
+  tone?: 'ink' | 'cream';
+  className?: string;
 }
 
-export function SegmentedControl<T extends string>({ options, value, onChange, accessibilityLabel }: SegmentedControlProps<T>) {
-  const [width, setWidth] = useState(0);
-  const index = Math.max(0, options.findIndex((o) => o.value === value));
-  const segment = options.length > 0 ? width / options.length : 0;
+/**
+ * Radio group rendered as segments. Arrow keys move the selection (WAI-ARIA radio pattern); only
+ * the selected segment is in the tab order.
+ */
+export function SegmentedControl<T extends string>({ label, options, value, onChange, tone = 'ink', className }: SegmentedControlProps<T>) {
+  const id = useId();
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const indicatorStyle = useAnimatedStyle(() => ({
-    width: segment,
-    transform: [{ translateX: withSpring(index * segment, springs.selection) }],
-  }));
+  const onKeyDown = (event: KeyboardEvent, index: number) => {
+    const delta = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0;
+    if (!delta) return;
+    event.preventDefault();
+    const next = (index + delta + options.length) % options.length;
+    const option = options[next];
+    if (!option) return;
+    onChange(option.value);
+    refs.current[next]?.focus();
+  };
 
   return (
-    <View
-      accessibilityRole="tablist"
-      accessibilityLabel={accessibilityLabel}
-      onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width - 8)}
-      style={styles.track}>
-      {width > 0 ? <Animated.View style={[styles.indicator, indicatorStyle]} /> : null}
-      {options.map((o) => {
-        const selected = o.value === value;
+    <div
+      role="radiogroup"
+      aria-labelledby={`${id}-label`}
+      className={cx('inline-flex rounded-full p-1', tone === 'ink' ? 'bg-sand' : 'bg-cream/12', className)}>
+      <span id={`${id}-label`} className="sr-only">
+        {label}
+      </span>
+      {options.map((option, index) => {
+        const selected = option.value === value;
         return (
-          <PressableScale
-            key={o.value}
-            onPress={() => onChange(o.value)}
-            haptic="selection"
-            pressedScale={0.97}
-            accessibilityRole="tab"
-            accessibilityState={{ selected }}
-            accessibilityLabel={o.label}
-            style={styles.segment}>
-            <Text variant="label" color={selected ? palette.cream : colors.text.primary} numberOfLines={1} style={styles.label}>
-              {o.label}
-            </Text>
-          </PressableScale>
+          <button
+            key={option.value}
+            ref={(el) => {
+              refs.current[index] = el;
+            }}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            tabIndex={selected ? 0 : -1}
+            onClick={() => onChange(option.value)}
+            onKeyDown={(e) => onKeyDown(e, index)}
+            className={cx(
+              'min-h-9 flex-1 rounded-full px-4 font-sans text-[0.8125rem] font-bold whitespace-nowrap transition-colors duration-150',
+              tone === 'ink'
+                ? selected
+                  ? 'bg-navy text-cream'
+                  : 'text-navy hover:bg-navy/6'
+                : selected
+                  ? 'bg-cream text-ink'
+                  : 'text-cream hover:bg-cream/10',
+            )}>
+            {option.label}
+          </button>
         );
       })}
-    </View>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  track: {
-    flexDirection: 'row',
-    padding: 4,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.border.warm,
-    backgroundColor: palette.sand,
-  },
-  indicator: {
-    position: 'absolute',
-    top: 4,
-    bottom: 4,
-    left: 4,
-    borderRadius: radii.pill,
-    backgroundColor: palette.navy,
-  },
-  segment: {
-    flex: 1,
-    minHeight: layout.minTouchTarget - 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing[2],
-  },
-  label: { fontSize: 14 },
-});

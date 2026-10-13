@@ -1,7 +1,7 @@
 /**
  * In-app summaries of how ColorTheory handles data. These describe what this codebase actually
  * does. They are NOT a substitute for a lawyer-reviewed privacy policy and terms — set
- * EXPO_PUBLIC_PRIVACY_URL / EXPO_PUBLIC_TERMS_URL to link your published documents.
+ * NEXT_PUBLIC_PRIVACY_URL / NEXT_PUBLIC_TERMS_URL to link your published documents.
  */
 export interface LegalSection {
   heading: string;
@@ -10,8 +10,8 @@ export interface LegalSection {
 
 export const PRIVACY_SECTIONS: LegalSection[] = [
   {
-    heading: 'Your portrait stays on your phone by default',
-    body: 'On-device analysis decodes a small copy of your photo in memory to estimate colour characteristics. Nothing is uploaded. The resized portrait is kept in the app’s private storage so you can revisit your results, and you can delete it at any time.',
+    heading: 'Your portrait stays in your browser by default',
+    body: 'On-device analysis decodes a small copy of your photo in your browser’s memory to estimate colour characteristics. Nothing is uploaded. The resized portrait (with location and camera metadata removed) is kept in this browser’s private site storage so you can revisit your results, and you can delete it at any time. Clearing site data for ColorTheory also removes it.',
   },
   {
     heading: 'Cloud storage and cloud analysis are opt-in',
@@ -19,11 +19,11 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
   },
   {
     heading: 'Third-party AI providers',
-    body: 'AI outfit previews and cloud analysis send your portrait to a third-party model provider through our server, using a link that expires within minutes. Providers process the image to return a result; see their retention terms (linked in Settings → Privacy). We never sell your images or use them to train models.',
+    body: 'AI outfit previews and cloud analysis send your portrait to a third-party model provider through our server, using a link that expires within minutes. Providers process the image to return a result; see their retention terms (linked from the privacy page). We never sell your images or use them to train models.',
   },
   {
     heading: 'What we store about you',
-    body: 'With an account: your email, display name, analysis results (colours and estimated characteristics), saved palettes, favourite colours and saved outfits. In demo mode, everything stays on this device.',
+    body: 'With an account: your email, display name, analysis results (colours and estimated characteristics), saved palettes, favourite colours and saved outfits. In demo mode, everything stays in this browser on this device.',
   },
   {
     heading: 'Estimates, not diagnoses',

@@ -12,25 +12,25 @@ not be confirmed are marked *unverified*.
 | **Image editing** | Changes an existing photo from an instruction ("make the top navy") | ~ Works without a garment photo; identity preservation varies |
 | **Virtual try-on** | Puts a *specific garment image* onto a *specific person image* | ✓ The right tool when you have a garment photo per colour |
 
-The app never needs generative AI to show recommendations: the palette and outfit engines are
+The site never needs generative AI to show recommendations: the palette and outfit engines are
 deterministic, and Mode A (colour drape) uses the user's unmodified photo.
 
-## What the app ships with
+## What the site ships with
 
 | Job | Default | Optional real provider | Where the key lives |
 |---|---|---|---|
-| Colour analysis | **On-device** heuristic (private, offline, free) | `analyze-portrait` → **Claude** `claude-opus-5-5` vision with JSON-schema output | Edge Function secret `ANTHROPIC_API_KEY` |
+| Colour analysis | **In-browser** heuristic (private, offline, free) | `analyze-portrait` → **Claude** `claude-opus-5-5` vision with JSON-schema output | Edge Function secret `ANTHROPIC_API_KEY` |
 | Outfit previews | **Mock** provider (walks the real job states, produces no image, labelled Demo) | `generate-outfit` → **FASHN** `tryon-v1.6` (or `edit` when no garment photo exists) | Edge Function secret `FASHN_API_KEY` |
 
 Both providers sit behind interfaces (`ColorAnalysisProvider`, `OutfitGenerationProvider`) and
-Edge Functions, so swapping vendors touches one function, not the app.
+Edge Functions, so swapping vendors touches one function, not the website.
 
 ### Cloud analysis with Claude
 
 - Model `claude-opus-5-5` (override with `ANALYSIS_MODEL`), effort `low` (`ANALYSIS_EFFORT`) —
   a bounded perception task.
 - `output_config.format` JSON schema → typed numbers/arrays; ranges are re-validated with Zod in
-  the function and again in the app.
+  the function and again in the browser.
 - Server-side refusal fallback enabled (`fallbacks: "default"`, beta
   `server-side-fallback-2026-07-01`). A refusal or unusable photo becomes a quality-gate message,
   never a made-up result.
@@ -112,7 +112,7 @@ asks to change only the garment and keep face, hair, skin, pose, background and 
 - `AI_PREVIEW_DAILY_LIMIT` (default 5) and `ANALYSIS_DAILY_LIMIT` (default 10) per user per
   rolling 24 h, enforced server-side.
 - `AI_PREVIEWS_ENABLED=false` turns AI previews off instantly.
-- Previews are only generated on an explicit tap — never prefetched.
+- Previews are only generated on an explicit click or tap — never prefetched.
 - Jobs stuck for more than 10 minutes are failed; `cleanup-orphans` fails anything older than an
   hour.
 - Check balance: `GET https://api.fashn.ai/v1/credits`.

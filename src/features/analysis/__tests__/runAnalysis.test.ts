@@ -1,10 +1,12 @@
+import type { Mock } from 'vitest';
+
 import { useAuthStore } from '@/features/auth/authStore';
 import { createDemoAnalysisResult } from '@/mocks/demoAnalysis';
 import { QualityGateError } from '@/services/color-analysis/QualityGateError';
 import type { ColorAnalysisProvider } from '@/services/color-analysis/types';
 import { LocalRepository } from '@/services/data/localRepository';
 import { useLocalDataStore } from '@/services/data/localDataStore';
-import { persistPortraitLocally } from '@/services/storage/localFiles';
+import { saveLocalPortrait } from '@/services/storage/localPortraits';
 import { removeObjects, uploadPortrait } from '@/services/storage/portraitStorage';
 import { AppError } from '@/utils/errors';
 
@@ -14,31 +16,32 @@ import { plannedStages, runAnalysis } from '../runAnalysis';
 const mockRepo = new LocalRepository();
 let mockProvider: ColorAnalysisProvider;
 
-jest.mock('@/services/data', () => ({ getRepository: () => mockRepo }));
-jest.mock('@/services/color-analysis', () => ({
-  ...jest.requireActual('@/services/color-analysis/QualityGateError'),
+vi.mock('@/services/data', () => ({ getRepository: () => mockRepo }));
+vi.mock('@/services/color-analysis', async () => ({
+  ...(await vi.importActual<object>('@/services/color-analysis/QualityGateError')),
   getColorAnalysisProvider: () => mockProvider,
 }));
-jest.mock('@/services/storage/localFiles', () => ({
-  persistPortraitLocally: jest.fn((_uri: string, id: string) => `file:///docs/portraits/${id}.jpg`),
-  deleteFileQuietly: jest.fn(),
+vi.mock('@/services/storage/localPortraits', () => ({
+  saveLocalPortrait: vi.fn(async (id: string) => `local-portrait:${id}`),
+  deleteLocalPortrait: vi.fn(async () => undefined),
 }));
-jest.mock('@/services/storage/portraitStorage', () => ({
+vi.mock('@/services/storage/portraitStorage', () => ({
   BUCKETS: { portraits: 'portraits', previews: 'outfit-previews' },
-  uploadPortrait: jest.fn(),
-  removeObjects: jest.fn(async () => undefined),
+  uploadPortrait: vi.fn(),
+  removeObjects: vi.fn(async () => undefined),
 }));
 
-const portrait = { uri: 'file:///cache/working.jpg', width: 1024, height: 1280, source: 'camera' as const, capturedAt: '2026-01-01T00:00:00Z' };
+const blob = new Blob(['jpeg'], { type: 'image/jpeg' });
+const portrait = { blob, url: 'blob:working', width: 1024, height: 1280, source: 'camera' as const, capturedAt: '2026-01-01T00:00:00Z' };
 const device: AnalysisRequest = { method: 'device', upload: false, keepInCloud: false, consentedAt: null };
 const result = { ...createDemoAnalysisResult(), isDemo: false, provider: 'on-device' as const };
 
 function fakeProvider(impl: ColorAnalysisProvider['analyze'], requiresUpload = false): ColorAnalysisProvider {
-  return { id: requiresUpload ? 'remote' : 'on-device', label: 'Fake', isDemo: false, requiresUpload, analyze: jest.fn(impl) };
+  return { id: requiresUpload ? 'remote' : 'on-device', label: 'Fake', isDemo: false, requiresUpload, analyze: vi.fn(impl) };
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   useLocalDataStore.getState().reset();
   useAnalysisStore.getState().reset();
   useAuthStore.setState({ status: 'demo', user: { id: 'demo-user', email: null, displayName: 'Guest', emailConfirmed: false } });
@@ -59,16 +62,16 @@ it('saves a completed analysis with a private local copy of the portrait', async
   const id = await runAnalysis({ portrait, request: device, signal: new AbortController().signal });
 
   const saved = await mockRepo.getAnalysis(id);
-  expect(saved).toMatchObject({ status: 'completed', portrait: { location: 'device', localUri: `file:///docs/portraits/${id}.jpg`, storagePath: null } });
+  expect(saved).toMatchObject({ status: 'completed', portrait: { location: 'device', localUri: `local-portrait:${id}`, storagePath: null } });
   expect(saved?.result?.headline).toBe(result.headline);
-  expect(persistPortraitLocally).toHaveBeenCalledWith(portrait.uri, id);
-  expect(uploadPortrait).not.toHaveBeenCalled(); // nothing leaves the device
+  expect(saveLocalPortrait).toHaveBeenCalledWith(id, blob);
+  expect(uploadPortrait).not.toHaveBeenCalled(); // nothing leaves the browser
   const run = useAnalysisStore.getState();
   expect(run.status).toBe('done');
   expect(run.completed).toEqual(plannedStages(device));
 });
 
-it('removes everything it created when the mockProvider fails', async () => {
+it('removes everything it created when the provider fails', async () => {
   mockProvider = fakeProvider(async () => {
     throw new AppError('network', 'down');
   });
@@ -118,7 +121,7 @@ describe('uploads and consent', () => {
 
   it('uploads with progress, then deletes a temporary cloud copy after analysis', async () => {
     useAuthStore.setState({ status: 'signedIn', user: { id: 'u1', email: 'a@b.co', displayName: null, emailConfirmed: true } });
-    (uploadPortrait as jest.Mock).mockImplementation(async (o: { userId: string; analysisId: string; onProgress: (f: number) => void }) => {
+    (uploadPortrait as Mock).mockImplementation(async (o: { userId: string; analysisId: string; onProgress: (f: number) => void }) => {
       o.onProgress(0.5);
       expect(useAnalysisStore.getState().uploadProgress).toBe(0.5);
       return `${o.userId}/${o.analysisId}/original.jpg`;
@@ -135,11 +138,11 @@ describe('uploads and consent', () => {
 
   it('keeps the cloud copy (and no local copy) when the user chose cloud storage', async () => {
     useAuthStore.setState({ status: 'signedIn', user: { id: 'u1', email: 'a@b.co', displayName: null, emailConfirmed: true } });
-    (uploadPortrait as jest.Mock).mockImplementation(async (o: { userId: string; analysisId: string }) => `${o.userId}/${o.analysisId}/original.jpg`);
+    (uploadPortrait as Mock).mockImplementation(async (o: { userId: string; analysisId: string }) => `${o.userId}/${o.analysisId}/original.jpg`);
     mockProvider = fakeProvider(async () => ({ ...result, provider: 'remote' }), true);
 
     const id = await runAnalysis({ portrait, request: { ...cloud, keepInCloud: true }, signal: new AbortController().signal });
-    expect(persistPortraitLocally).not.toHaveBeenCalled();
+    expect(saveLocalPortrait).not.toHaveBeenCalled();
     expect(removeObjects).not.toHaveBeenCalled();
     expect((await mockRepo.getAnalysis(id))?.portrait).toMatchObject({ location: 'cloud', localUri: null, storagePath: `u1/${id}/original.jpg` });
   });

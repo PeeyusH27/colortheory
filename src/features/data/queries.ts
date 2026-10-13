@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuthStore } from '@/features/auth/authStore';
 import { repositoryFor, type DataRepository, type OutfitPreviewInput } from '@/services/data';
+import { isLocalPortraitRef, localPortraitUrl } from '@/services/storage/localPortraits';
 import { BUCKETS, createSignedUrl } from '@/services/storage/portraitStorage';
 import type { AnalysisSession, PaletteColor, SavedPalette } from '@/types/domain';
 
@@ -14,6 +15,15 @@ export function useRepository(): DataRepository {
   const status = useAuthStore((s) => s.status);
   const user = useAuthStore((s) => s.user);
   return repositoryFor(status, user);
+}
+
+/**
+ * Data queries wait until auth state is known, so a signed-in visitor never briefly sees (or
+ * writes to) browser-local data while the session is being restored. Until then they stay pending
+ * and pages show their loading states.
+ */
+function useAuthReady() {
+  return useAuthStore((s) => s.status !== 'initializing' && s.status !== 'signedOut');
 }
 
 export const queryKeys = {
@@ -31,15 +41,17 @@ export const queryKeys = {
 
 export function useAnalyses() {
   const repo = useRepository();
-  return useQuery({ queryKey: queryKeys.analyses(repo.scope), queryFn: () => repo.listAnalyses() });
+  const ready = useAuthReady();
+  return useQuery({ queryKey: queryKeys.analyses(repo.scope), queryFn: () => repo.listAnalyses(), enabled: ready });
 }
 
 export function useAnalysis(id: string | undefined) {
   const repo = useRepository();
+  const ready = useAuthReady();
   return useQuery({
     queryKey: queryKeys.analysis(repo.scope, id ?? 'none'),
     queryFn: () => repo.getAnalysis(id as string),
-    enabled: Boolean(id),
+    enabled: ready && Boolean(id),
   });
 }
 
@@ -52,44 +64,56 @@ export function useLatestAnalysis() {
 
 export function usePalettes() {
   const repo = useRepository();
-  return useQuery({ queryKey: queryKeys.palettes(repo.scope), queryFn: () => repo.listPalettes() });
+  const ready = useAuthReady();
+  return useQuery({ queryKey: queryKeys.palettes(repo.scope), queryFn: () => repo.listPalettes(), enabled: ready });
 }
 
 export function useFavoriteColors() {
   const repo = useRepository();
-  return useQuery({ queryKey: queryKeys.favorites(repo.scope), queryFn: () => repo.listFavoriteColors() });
+  const ready = useAuthReady();
+  return useQuery({ queryKey: queryKeys.favorites(repo.scope), queryFn: () => repo.listFavoriteColors(), enabled: ready });
 }
 
 export function useSavedOutfits() {
   const repo = useRepository();
-  return useQuery({ queryKey: queryKeys.savedOutfits(repo.scope), queryFn: () => repo.listSavedOutfits() });
+  const ready = useAuthReady();
+  return useQuery({ queryKey: queryKeys.savedOutfits(repo.scope), queryFn: () => repo.listSavedOutfits(), enabled: ready });
 }
 
 export function useStats() {
   const repo = useRepository();
-  return useQuery({ queryKey: queryKeys.stats(repo.scope), queryFn: () => repo.getStats() });
+  const ready = useAuthReady();
+  return useQuery({ queryKey: queryKeys.stats(repo.scope), queryFn: () => repo.getStats(), enabled: ready });
 }
 
 export function useProfile() {
   const repo = useRepository();
-  return useQuery({ queryKey: queryKeys.profile(repo.scope), queryFn: () => repo.getProfile() });
+  const ready = useAuthReady();
+  return useQuery({ queryKey: queryKeys.profile(repo.scope), queryFn: () => repo.getProfile(), enabled: ready });
 }
 
 /**
- * Display URI for a portrait: the on-device file when available, otherwise a short-lived signed
- * URL for the private cloud object (refreshed before it expires).
+ * Display URI for a portrait: the copy kept in this browser (IndexedDB) when available, otherwise a
+ * short-lived signed URL for the private cloud object (refreshed before it expires).
  */
 export function usePortraitUri(session: AnalysisSession | null | undefined) {
-  const localUri = session?.portrait.localUri ?? null;
+  const localRef = isLocalPortraitRef(session?.portrait.localUri) ? session.portrait.localUri : null;
   const path = session?.portrait.location === 'cloud' ? session.portrait.storagePath : null;
+  const local = useQuery({
+    queryKey: ['local-portrait', localRef ?? 'none'],
+    queryFn: () => localPortraitUrl(localRef as string),
+    enabled: Boolean(localRef),
+    staleTime: Infinity,
+    networkMode: 'always',
+  });
   const signed = useQuery({
     queryKey: queryKeys.signedUrl(BUCKETS.portraits, path ?? 'none'),
     queryFn: () => createSignedUrl(BUCKETS.portraits, path as string),
-    enabled: !localUri && Boolean(path),
+    enabled: !local.data && (local.isFetched || !localRef) && Boolean(path),
     staleTime: 8 * 60_000,
     gcTime: 9 * 60_000,
   });
-  return localUri ?? signed.data ?? null;
+  return local.data ?? signed.data ?? null;
 }
 
 export function useSignedPreviewUri(path: string | null | undefined) {
@@ -105,7 +129,11 @@ export function useSignedPreviewUri(path: string | null | undefined) {
 function useInvalidate() {
   const client = useQueryClient();
   const repo = useRepository();
-  return () => client.invalidateQueries({ queryKey: queryKeys.all(repo.scope) });
+  return () =>
+    Promise.all([
+      client.invalidateQueries({ queryKey: queryKeys.all(repo.scope) }),
+      client.invalidateQueries({ queryKey: ['local-portrait'] }),
+    ]);
 }
 
 export function useDeleteAnalysis() {

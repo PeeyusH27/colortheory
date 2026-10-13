@@ -1,21 +1,21 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 /**
- * Small, non-sensitive device preferences persisted to AsyncStorage.
- * Never store tokens, portraits or analysis data here.
+ * Small, non-sensitive preferences persisted to localStorage (this browser only).
+ * Never store tokens, portraits or analysis data here. `skipHydration` keeps the first client
+ * render identical to the server HTML; `AppProviders` rehydrates on mount.
  */
 export type PortraitStoragePreference = 'device' | 'cloud';
 
 interface PreferencesState {
   hasHydrated: boolean;
   hasCompletedOnboarding: boolean;
-  /** The user explicitly chose "Explore in demo mode" on the welcome screen. */
+  /** The user explicitly chose "Explore in demo mode". */
   demoMode: boolean;
   /** Where to keep the original portrait after an analysis. Cloud requires sign-in. */
   portraitStorage: PortraitStoragePreference;
-  /** Profile picture kept on this device only (never uploaded). */
+  /** Profile picture as a small JPEG data URL, kept in this browser only (never uploaded). */
   avatarUri: string | null;
   /** Hexes / outfit IDs the user looked at recently (device-only, capped). */
   recentlyViewed: { kind: 'color' | 'outfit'; id: string; label: string; hex: string; at: string }[];
@@ -57,7 +57,8 @@ export const usePreferencesStore = create<PreferencesState>()(
     }),
     {
       name: 'colortheory.preferences.v1',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => localStorage),
+      skipHydration: true,
       partialize: ({ hasCompletedOnboarding, demoMode, portraitStorage, avatarUri, recentlyViewed }) => ({
         hasCompletedOnboarding,
         demoMode,

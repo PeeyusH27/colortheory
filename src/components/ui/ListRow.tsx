@@ -1,108 +1,72 @@
-import type { LucideIcon } from 'lucide-react-native';
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight, type LucideIcon } from 'lucide-react';
+import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { StyleSheet, Switch, View } from 'react-native';
 
-import { colors, palette } from '@/theme/colors';
-import { layout, spacing } from '@/theme/spacing';
-
-import { PressableScale } from './PressableScale';
-import { Text } from './Text';
+import { cx } from './cx';
 
 interface ListRowProps {
   title: string;
-  subtitle?: string;
+  description?: ReactNode;
   icon?: LucideIcon;
-  /** Right-aligned text value (e.g. "12 saved"). */
-  value?: string;
-  onPress?: () => void;
-  destructive?: boolean;
-  /** Renders a native switch instead of a chevron. */
-  toggle?: { value: boolean; onChange: (value: boolean) => void; disabled?: boolean };
   trailing?: ReactNode;
+  href?: string;
+  external?: boolean;
+  onClick?: () => void;
+  destructive?: boolean;
   disabled?: boolean;
-  last?: boolean;
+  className?: string;
 }
 
-/** Settings/profile row. Switch rows expose `switch` semantics; tappable rows expose `button`. */
-export function ListRow({ title, subtitle, icon: Icon, value, onPress, destructive, toggle, trailing, disabled, last }: ListRowProps) {
-  const tint = destructive ? colors.status.error : colors.text.primary;
-  const content = (
+/** Settings/profile row. Renders as a link, a button, or static content. */
+export function ListRow({ title, description, icon: Icon, trailing, href, external, onClick, destructive, disabled, className }: ListRowProps) {
+  const body = (
     <>
       {Icon ? (
-        <View style={[styles.iconWrap, destructive && styles.iconWrapDestructive]}>
-          <Icon size={18} color={tint} strokeWidth={2} />
-        </View>
+        <span
+          className={cx(
+            'flex size-10 shrink-0 items-center justify-center rounded-full',
+            destructive ? 'bg-error-soft text-error' : 'bg-mist text-denim',
+          )}>
+          <Icon aria-hidden size={18} strokeWidth={1.9} />
+        </span>
       ) : null}
-      <View style={styles.copy}>
-        <Text variant="label" color={tint}>
-          {title}
-        </Text>
-        {subtitle ? (
-          <Text variant="bodyS" tone="secondary">
-            {subtitle}
-          </Text>
-        ) : null}
-      </View>
-      {value ? (
-        <Text variant="bodyS" tone="secondary">
-          {value}
-        </Text>
-      ) : null}
-      {trailing}
-      {toggle ? (
-        <Switch
-          value={toggle.value}
-          onValueChange={toggle.onChange}
-          disabled={toggle.disabled || disabled}
-          trackColor={{ false: palette.linen, true: palette.denim }}
-          thumbColor={palette.paper}
-          ios_backgroundColor={palette.linen}
-          accessibilityLabel={title}
-          accessibilityHint={subtitle}
-        />
-      ) : onPress ? (
-        <ChevronRight size={18} color={colors.text.tertiary} />
-      ) : null}
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+        <span className={cx('type-label', destructive ? 'text-error' : 'text-navy')}>{title}</span>
+        {description ? <span className="type-body-s text-muted">{description}</span> : null}
+      </span>
+      {trailing ?? (href || onClick ? <ChevronRight aria-hidden size={18} className="shrink-0 text-slate" /> : null)}
     </>
   );
+  const base = cx('flex min-h-16 w-full items-center gap-4 px-4 py-3', className);
+  const interactive = 'transition-colors duration-150 hover:bg-sand/70 active:bg-sand disabled:opacity-50';
 
-  const rowStyle = [styles.row, !last && styles.separator, disabled && styles.disabled];
-
-  if (onPress && !toggle) {
-    return (
-      <PressableScale
-        onPress={onPress}
-        disabled={disabled}
-        pressedScale={0.985}
-        accessibilityRole="button"
-        accessibilityLabel={subtitle ? `${title}. ${subtitle}` : title}
-        accessibilityState={{ disabled }}
-        style={rowStyle}>
-        {content}
-      </PressableScale>
+  if (href) {
+    return external ? (
+      <a href={href} target="_blank" rel="noreferrer noopener" className={cx(base, interactive)}>
+        {body}
+      </a>
+    ) : (
+      <Link href={href} className={cx(base, interactive)}>
+        {body}
+      </Link>
     );
   }
-  return <View style={rowStyle}>{content}</View>;
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} disabled={disabled} className={cx(base, interactive)}>
+        {body}
+      </button>
+    );
+  }
+  return <div className={base}>{body}</div>;
 }
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3],
-    minHeight: layout.minTouchTarget + 12,
-    paddingVertical: spacing[3],
-  },
-  separator: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border.warm },
-  disabled: { opacity: 0.5 },
-  iconWrap: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.sand,
-  },
-  iconWrapDestructive: { backgroundColor: colors.status.errorSoft },
-  copy: { flex: 1, gap: 2 },
-});
+/** Card that groups ListRows with hairline separators. */
+export function ListGroup({ children, label, className }: { children: ReactNode; label?: string; className?: string }) {
+  return (
+    <section aria-label={label} className={cx('flex flex-col', className)}>
+      {label ? <h2 className="type-eyebrow mb-2 px-1 text-muted">{label}</h2> : null}
+      <div className="divide-y divide-line-warm overflow-hidden rounded-md border-[1.5px] border-navy bg-paper">{children}</div>
+    </section>
+  );
+}

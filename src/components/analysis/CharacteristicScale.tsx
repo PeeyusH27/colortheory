@@ -1,10 +1,3 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, View } from 'react-native';
-
-import { Text } from '@/components/ui/Text';
-import { palette } from '@/theme/colors';
-import { spacing } from '@/theme/spacing';
-
 interface CharacteristicScaleProps {
   label: string;
   /** 0 … 1 position on the track. */
@@ -12,50 +5,26 @@ interface CharacteristicScaleProps {
   estimate: string;
   left: string;
   right: string;
-  gradient: [string, string, ...string[]];
+  gradient: string[];
 }
 
 /** A labelled gradient track with a marker — shows an *estimate*, not a measurement. */
 export function CharacteristicScale({ label, value, estimate, left, right, gradient }: CharacteristicScaleProps) {
   const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
   return (
-    <View style={styles.root} accessible accessibilityLabel={`${label}: estimated ${estimate}, on a scale from ${left} to ${right}`}>
-      <View style={styles.header}>
-        <Text variant="eyebrow" tone="secondary">
-          {label}
-        </Text>
-        <Text variant="label">{estimate}</Text>
-      </View>
-      <View style={styles.trackWrap}>
-        <LinearGradient colors={gradient} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.track} />
-        <View style={[styles.marker, { left: `${pct}%` }]} />
-      </View>
-      <View style={styles.ends}>
-        <Text variant="caption" tone="secondary">
-          {left}
-        </Text>
-        <Text variant="caption" tone="secondary">
-          {right}
-        </Text>
-      </View>
-    </View>
+    <div role="group" aria-label={`${label}: estimated ${estimate}, on a scale from ${left} to ${right}`} className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="type-eyebrow text-muted">{label}</span>
+        <span className="type-label text-navy capitalize">{estimate}</span>
+      </div>
+      <div aria-hidden className="relative h-3">
+        <div className="h-full rounded-full border border-navy/20" style={{ background: `linear-gradient(90deg, ${gradient.join(', ')})` }} />
+        <span className="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rotate-45 border-[2.5px] border-navy bg-cream" style={{ left: `${pct}%` }} />
+      </div>
+      <div aria-hidden className="type-caption flex justify-between text-muted">
+        <span>{left}</span>
+        <span>{right}</span>
+      </div>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { gap: spacing[2] },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  trackWrap: { height: 22, justifyContent: 'center' },
-  track: { height: 10, borderWidth: 1, borderColor: palette.navy },
-  marker: {
-    position: 'absolute',
-    width: 16,
-    height: 16,
-    marginLeft: -8,
-    backgroundColor: palette.cream,
-    borderWidth: 2.5,
-    borderColor: palette.navy,
-    transform: [{ rotate: '45deg' }],
-  },
-  ends: { flexDirection: 'row', justifyContent: 'space-between' },
-});

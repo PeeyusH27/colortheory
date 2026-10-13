@@ -1,39 +1,65 @@
+import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
 
 import { Blob } from '@/components/brand/Blob';
-import { EditorialHeader } from '@/components/layout/EditorialHeader';
-import { ScreenContainer } from '@/components/layout/ScreenContainer';
+import { DrapePanels } from '@/components/brand/EditorialArt';
+import { Logo } from '@/components/brand/Logo';
 import { palette } from '@/theme/colors';
-import { spacing } from '@/theme/spacing';
 
 interface AuthScaffoldProps {
   eyebrow: string;
   title: string;
   deck?: string;
-  children: ReactNode;
-  footer?: ReactNode;
+  /** Brand accent for the decorative blob on this page. */
   accent?: string;
+  children: ReactNode;
 }
 
 /**
- * Shared layout for sign-in / sign-up / reset screens: restrained and form-first, with a single
- * colour blob as the only maximalist gesture so the inputs stay the focus.
+ * Shared frame for auth pages: an editorial panel (desktop) beside a single-column form. Purely
+ * presentational, so it renders on the server; forms inside are client components.
  */
-export function AuthScaffold({ eyebrow, title, deck, children, footer, accent = palette.sky }: AuthScaffoldProps) {
+export function AuthScaffold({ eyebrow, title, deck, accent = palette.sky, children }: AuthScaffoldProps) {
   return (
-    <ScreenContainer scroll keyboardAware footer={footer} contentContainerStyle={styles.content}>
-      <View style={styles.blob} pointerEvents="none">
-        <Blob seed={title.length * 7 + 3} color={accent} size={220} />
-      </View>
-      <EditorialHeader leading="back" eyebrow={eyebrow} title={title} deck={deck} />
-      <View style={styles.body}>{children}</View>
-    </ScreenContainer>
+    <div className="grid min-h-dvh lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      <aside aria-hidden className="relative hidden overflow-hidden bg-ink lg:flex lg:flex-col lg:justify-between lg:p-12">
+        <Blob seed={41} color={accent} className="absolute -top-24 -right-24 w-[70%] opacity-90" />
+        <Blob seed={53} color={palette.denim} className="absolute -bottom-32 -left-20 w-[60%] opacity-80" />
+        <Logo inverse />
+        <div className="relative">
+          <DrapePanels className="max-w-md" />
+          <p className="type-editorial mt-10 max-w-sm text-cream">“Colour is the first thing people notice — and the easiest thing to get right.”</p>
+        </div>
+      </aside>
+      <div className="flex flex-col">
+        <header className="page flex h-16 items-center justify-between lg:hidden">
+          <Link href="/" aria-label="ColorTheory home">
+            <Logo size="sm" />
+          </Link>
+        </header>
+        <main id="main" className="flex flex-1 items-start justify-center px-4 pt-6 pb-16 sm:px-6 lg:items-center lg:pt-16">
+          <div className="flex w-full max-w-md flex-col gap-6">
+            <div className="relative isolate flex flex-col gap-2">
+              <Blob seed={7} color={accent} className="absolute -top-6 -left-8 -z-10 w-28 opacity-70 lg:hidden" />
+              <p className="type-eyebrow text-coral-text">{eyebrow}</p>
+              <h1 className="type-h1 text-navy">{title}</h1>
+              {deck ? <p className="type-body-l text-muted">{deck}</p> : null}
+            </div>
+            {children}
+          </div>
+        </main>
+      </div>
+    </div>
   );
 }
 
-const styles = StyleSheet.create({
-  content: { paddingBottom: spacing[8] },
-  blob: { position: 'absolute', top: -40, right: -70, opacity: 0.55 },
-  body: { gap: spacing[5], marginTop: spacing[2] },
-});
+/** Placeholder while a form that reads the URL streams in. */
+export function FormSkeleton() {
+  return (
+    <div aria-hidden className="flex flex-col gap-5">
+      <div className="h-[4.5rem] animate-pulse-soft rounded-md bg-linen/70" />
+      <div className="h-[4.5rem] animate-pulse-soft rounded-md bg-linen/70" />
+      <div className="h-11 animate-pulse-soft rounded-full bg-linen/70" />
+    </div>
+  );
+}

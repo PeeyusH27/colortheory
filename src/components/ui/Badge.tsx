@@ -1,103 +1,89 @@
-import type { LucideIcon } from 'lucide-react-native';
-import { Cloud, FlaskConical, Layers, Smartphone, Sparkles } from 'lucide-react-native';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Cloud, FlaskConical, Layers, MonitorSmartphone, Sparkles, type LucideIcon } from 'lucide-react';
 
-import { colors, palette } from '@/theme/colors';
-import { radii } from '@/theme/radii';
-import { spacing } from '@/theme/spacing';
-
-import { Text } from './Text';
+import { cx } from './cx';
 
 type BadgeTone = 'neutral' | 'demo' | 'info' | 'success' | 'warning' | 'error' | 'inverse' | 'accent';
 
-const TONES: Record<BadgeTone, { bg: string; fg: string; border: string }> = {
-  neutral: { bg: palette.sand, fg: palette.navy, border: palette.borderWarm },
-  demo: { bg: palette.saffron, fg: palette.ink, border: palette.saffron },
-  info: { bg: palette.mist, fg: palette.denim, border: palette.mist },
-  success: { bg: colors.status.successSoft, fg: colors.status.success, border: colors.status.successSoft },
-  warning: { bg: colors.status.warningSoft, fg: colors.status.warning, border: colors.status.warningSoft },
-  error: { bg: colors.status.errorSoft, fg: colors.status.error, border: colors.status.errorSoft },
-  inverse: { bg: 'rgba(247, 243, 236, 0.12)', fg: palette.cream, border: 'rgba(247, 243, 236, 0.3)' },
-  accent: { bg: palette.coral, fg: palette.ink, border: palette.coral },
+const TONES: Record<BadgeTone, string> = {
+  neutral: 'bg-sand text-navy border-line-warm',
+  demo: 'bg-saffron text-ink border-saffron',
+  info: 'bg-mist text-denim border-mist',
+  success: 'bg-success-soft text-success border-success-soft',
+  warning: 'bg-warning-soft text-warning border-warning-soft',
+  error: 'bg-error-soft text-error border-error-soft',
+  inverse: 'bg-cream/12 text-cream border-cream/30',
+  accent: 'bg-coral text-ink border-coral',
 };
 
 interface BadgeProps {
   label: string;
   tone?: BadgeTone;
   icon?: LucideIcon;
-  style?: StyleProp<ViewStyle>;
+  className?: string;
+  title?: string;
 }
 
-export function Badge({ label, tone = 'neutral', icon: Icon, style }: BadgeProps) {
-  const t = TONES[tone];
+export function Badge({ label, tone = 'neutral', icon: Icon, className, title }: BadgeProps) {
   return (
-    <View style={[styles.base, { backgroundColor: t.bg, borderColor: t.border }, style]}>
-      {Icon ? <Icon size={12} color={t.fg} strokeWidth={2.4} /> : null}
-      <Text variant="eyebrow" color={t.fg} style={styles.label} numberOfLines={1}>
-        {label}
-      </Text>
-    </View>
+    <span
+      title={title}
+      className={cx(
+        'inline-flex max-w-full items-center gap-1 self-start rounded-full border px-2 py-[5px] font-sans text-[0.625rem] font-bold uppercase leading-3 tracking-[0.12em] whitespace-nowrap',
+        TONES[tone],
+        className,
+      )}>
+      {Icon ? <Icon aria-hidden size={12} strokeWidth={2.4} /> : null}
+      <span className="truncate">{label}</span>
+    </span>
   );
 }
 
 export type Provenance = 'demo' | 'device' | 'remote' | 'drape' | 'ai';
 
-const PROVENANCE: Record<Provenance, { label: string; tone: BadgeTone; icon: LucideIcon; a11y: string }> = {
+const PROVENANCE: Record<Provenance, { label: string; tone: BadgeTone; icon: LucideIcon; description: string }> = {
   demo: {
     label: 'Demo · sample data',
     tone: 'demo',
     icon: FlaskConical,
-    a11y: 'Demo content. These are sample results, not based on your photo.',
+    description: 'Demo content. These are sample results, not based on your photo.',
   },
   device: {
     label: 'On-device estimate',
     tone: 'info',
-    icon: Smartphone,
-    a11y: 'Estimated on this device from your photo. Not an AI diagnosis.',
+    icon: MonitorSmartphone,
+    description: 'Estimated in your browser from your photo. Not an AI diagnosis.',
   },
   remote: {
     label: 'Cloud analysis',
     tone: 'info',
     icon: Cloud,
-    a11y: 'Analysed by the ColorTheory cloud service.',
+    description: 'Analysed by the ColorTheory cloud service with an AI vision model.',
   },
   drape: {
     label: 'Colour drape · not AI',
     tone: 'neutral',
     icon: Layers,
-    a11y: 'Colour drape preview: your photo with a colour panel. This is not an AI-generated try-on.',
+    description: 'Colour drape preview: your photo with a colour panel. This is not an AI-generated try-on.',
   },
   ai: {
     label: 'AI preview · approximation',
     tone: 'accent',
     icon: Sparkles,
-    a11y: 'AI-generated preview. It is an approximation and may not perfectly preserve your appearance.',
+    description: 'AI-generated preview. It is an approximation and may not perfectly preserve your appearance.',
   },
 };
 
 /**
  * Labels where a result came from. Every analysis result and outfit preview shows one so demo or
- * approximate content is never mistaken for a real AI result.
+ * approximate content is never mistaken for a real AI result. The full explanation is exposed to
+ * assistive technology and as a tooltip.
  */
-export function ProvenanceBadge({ kind, inverse, style }: { kind: Provenance; inverse?: boolean; style?: StyleProp<ViewStyle> }) {
+export function ProvenanceBadge({ kind, inverse, className }: { kind: Provenance; inverse?: boolean; className?: string }) {
   const p = PROVENANCE[kind];
   return (
-    <View accessible accessibilityLabel={p.a11y} style={style}>
+    <span className={cx('inline-flex', className)} title={p.description}>
       <Badge label={p.label} tone={inverse && p.tone !== 'demo' && p.tone !== 'accent' ? 'inverse' : p.tone} icon={p.icon} />
-    </View>
+      <span className="sr-only">{p.description}</span>
+    </span>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: spacing[1],
-    paddingHorizontal: spacing[2],
-    paddingVertical: 5,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-  },
-  label: { letterSpacing: 1.2, fontSize: 10, lineHeight: 12 },
-});

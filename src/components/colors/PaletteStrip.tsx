@@ -1,40 +1,25 @@
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-
-import { Text } from '@/components/ui/Text';
-import { palette as tokens } from '@/theme/colors';
-import { readableOn } from '@/utils/color';
+import { cx } from '../ui/cx';
 
 interface PaletteStripProps {
-  colors: { name?: string; hex: string }[];
+  colors: { name: string; hex: string }[];
+  /** Height in px. */
   height?: number;
-  /** Show hex codes inside each band (reference-style palette bar). */
-  labeled?: boolean;
-  style?: StyleProp<ViewStyle>;
+  className?: string;
+  label?: string;
 }
 
-/** Edge-to-edge colour bands, like the palette row in a printed style guide. */
-export function PaletteStrip({ colors, height = 56, labeled = false, style }: PaletteStripProps) {
+/** Continuous band of colours (palette preview). One labelled image for assistive tech. */
+export function PaletteStrip({ colors, height = 24, className, label }: PaletteStripProps) {
+  if (colors.length === 0) return null;
   return (
-    <View
-      accessible
-      accessibilityRole="image"
-      accessibilityLabel={`Palette: ${colors.map((c) => c.name ?? c.hex).join(', ')}`}
-      style={[styles.row, { height }, style]}>
+    <div
+      role="img"
+      aria-label={label ?? `Palette: ${colors.map((c) => c.name).join(', ')}`}
+      className={cx('flex w-full overflow-hidden border border-navy/20', className)}
+      style={{ height }}>
       {colors.map((c, i) => (
-        <View key={`${c.hex}-${i}`} style={[styles.band, { backgroundColor: c.hex }]}>
-          {labeled ? (
-            <Text variant="hex" color={readableOn(c.hex)} style={styles.hex} numberOfLines={1} adjustsFontSizeToFit>
-              {c.hex.replace('#', '')}
-            </Text>
-          ) : null}
-        </View>
+        <span key={`${c.hex}-${i}`} className="h-full flex-1" style={{ backgroundColor: c.hex }} />
       ))}
-    </View>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', overflow: 'hidden', borderWidth: 1, borderColor: tokens.navy },
-  band: { flex: 1, justifyContent: 'flex-end', padding: 4 },
-  hex: { fontSize: 9, lineHeight: 11, letterSpacing: 0.2 },
-});

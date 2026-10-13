@@ -1,7 +1,6 @@
 import { usePreferencesStore } from '@/store/preferencesStore';
 
 import {
-  completeAuthFromUrl,
   deleteAccount,
   enterDemoMode,
   exitDemoMode,
@@ -16,30 +15,26 @@ type Listener = (event: string, session: unknown) => void;
 let listener: Listener = () => undefined;
 
 const mockAuth = {
-  getSession: jest.fn(),
-  onAuthStateChange: jest.fn((cb: Listener) => {
+  getSession: vi.fn(),
+  onAuthStateChange: vi.fn((cb: Listener) => {
     listener = cb;
-    return { data: { subscription: { unsubscribe: jest.fn() } } };
+    return { data: { subscription: { unsubscribe: vi.fn() } } };
   }),
-  signInWithPassword: jest.fn(),
-  signUp: jest.fn(),
-  resend: jest.fn(),
-  resetPasswordForEmail: jest.fn(),
-  updateUser: jest.fn(),
-  exchangeCodeForSession: jest.fn(),
-  setSession: jest.fn(),
-  signOut: jest.fn(),
+  signInWithPassword: vi.fn(),
+  signUp: vi.fn(),
+  resend: vi.fn(),
+  resetPasswordForEmail: vi.fn(),
+  updateUser: vi.fn(),
+  exchangeCodeForSession: vi.fn(),
+  setSession: vi.fn(),
+  signOut: vi.fn(),
 };
-const mockFunctionsInvoke = jest.fn();
-const mockClient = { auth: mockAuth, functions: { invoke: mockFunctionsInvoke }, from: jest.fn() };
+const mockFunctionsInvoke = vi.fn();
+const mockClient = { auth: mockAuth, functions: { invoke: mockFunctionsInvoke }, from: vi.fn() };
 
-jest.mock('@/services/supabase/client', () => ({
+vi.mock('@/services/supabase/client', () => ({
   getSupabase: () => mockClient,
   getSupabaseOrNull: () => mockClient,
-}));
-jest.mock('expo-linking', () => ({
-  createURL: (path: string, opts?: { queryParams?: Record<string, string> }) =>
-    `colortheory://${path.replace(/^\//, '')}${opts?.queryParams ? `?${new URLSearchParams(opts.queryParams)}` : ''}`,
 }));
 
 const session = (id = 'user-1') => ({
@@ -49,7 +44,7 @@ const session = (id = 'user-1') => ({
 });
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   useAuthStore.setState({ status: 'initializing', user: null, recoveryPending: false, sessionExpired: false });
   usePreferencesStore.setState({ demoMode: false });
 });
@@ -72,7 +67,9 @@ describe('session restoration', () => {
   });
 
   it('starts signed out if storage is unreadable', async () => {
-    mockAuth.getSession.mockRejectedValue(new Error('corrupt'));
+    mockAuth.getSession.mockImplementation(async () => {
+      throw new Error('corrupt');
+    });
     await initializeAuth();
     expect(useAuthStore.getState().status).toBe('signedOut');
   });
@@ -91,7 +88,7 @@ describe('session restoration', () => {
     expect(useAuthStore.getState()).toMatchObject({ status: 'signedOut', sessionExpired: false });
   });
 
-  it('flags password recovery so the router opens the reset screen', async () => {
+  it('flags password recovery so the reset page can require a new password', async () => {
     mockAuth.getSession.mockResolvedValue({ data: { session: null } });
     await initializeAuth();
     listener('PASSWORD_RECOVERY', session());
@@ -110,48 +107,27 @@ describe('email/password', () => {
     await expect(signInWithEmail('a@b.co', 'x')).rejects.toMatchObject({ code: 'network', retryable: true });
   });
 
-  it('reports when email verification is required and sets the deep-link redirect', async () => {
+  it('reports when email verification is required and sends the link back to this site', async () => {
     mockAuth.signUp.mockResolvedValue({ data: { user: { id: 'u' }, session: null }, error: null });
     await expect(signUpWithEmail({ email: 'a@b.co', password: 'colours42', displayName: 'Alex' })).resolves.toEqual({ needsVerification: true });
     expect(mockAuth.signUp).toHaveBeenCalledWith(
-      expect.objectContaining({ options: { data: { display_name: 'Alex' }, emailRedirectTo: 'colortheory://auth-callback' } }),
+      expect.objectContaining({
+        options: { data: { display_name: 'Alex' }, emailRedirectTo: `${window.location.origin}/auth/callback?next=%2Fdiscover` },
+      }),
     );
   });
 });
 
-describe('email links', () => {
-  it('exchanges a PKCE code', async () => {
-    mockAuth.exchangeCodeForSession.mockResolvedValue({ error: null });
-    await expect(completeAuthFromUrl('colortheory://auth-callback?code=abc')).resolves.toBe('signed-in');
-    expect(mockAuth.exchangeCodeForSession).toHaveBeenCalledWith('abc');
-  });
-
-  it('supports implicit-flow fragments and recovery links', async () => {
-    mockAuth.setSession.mockResolvedValue({ error: null });
-    await expect(completeAuthFromUrl('colortheory://auth-callback?type=recovery#access_token=t&refresh_token=r')).resolves.toBe('recovery');
-    expect(mockAuth.setSession).toHaveBeenCalledWith({ access_token: 't', refresh_token: 'r' });
-    expect(useAuthStore.getState().recoveryPending).toBe(true);
-  });
-
-  it('explains expired links', async () => {
-    await expect(completeAuthFromUrl('colortheory://auth-callback?error_code=otp_expired&error_description=x')).rejects.toMatchObject({
-      message: expect.stringMatching(/expired/),
-    });
-  });
-
-  it('rejects incomplete links', async () => {
-    await expect(completeAuthFromUrl('colortheory://auth-callback')).rejects.toMatchObject({ code: 'invalid_response' });
-  });
-});
-
 describe('demo mode', () => {
-  it('is explicit and reversible', () => {
+  it('is explicit and reversible, and marks the browser for the route guard', () => {
     enterDemoMode();
     expect(useAuthStore.getState().status).toBe('demo');
     expect(usePreferencesStore.getState().demoMode).toBe(true);
+    expect(document.cookie).toContain('ct_demo=1');
     exitDemoMode();
     expect(useAuthStore.getState().status).toBe('signedOut');
     expect(usePreferencesStore.getState().demoMode).toBe(false);
+    expect(document.cookie).not.toContain('ct_demo=1');
   });
 
   it('a real sign-in always replaces demo mode', async () => {

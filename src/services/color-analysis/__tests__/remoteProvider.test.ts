@@ -1,3 +1,5 @@
+import type { MockedFunction } from 'vitest';
+
 import { FACE_SAMPLE_ELLIPSE, insideEllipse } from '@/features/analysis/faceRegion';
 import type { PixelImage } from '@/features/analysis/imageAnalysis';
 import { invokeFunction } from '@/services/supabase/functions';
@@ -9,8 +11,8 @@ import { isQualityGateError } from '../QualityGateError';
 import { RemoteColorAnalysisProvider } from '../RemoteColorAnalysisProvider';
 import { remoteAnalysisResponseSchema } from '../remoteSchema';
 
-jest.mock('@/services/supabase/functions', () => ({ invokeFunction: jest.fn() }));
-const invoke = invokeFunction as jest.MockedFunction<typeof invokeFunction>;
+vi.mock('@/services/supabase/functions', () => ({ invokeFunction: vi.fn() }));
+const invoke = invokeFunction as MockedFunction<typeof invokeFunction>;
 
 function image(skin: [number, number, number], bg: [number, number, number] = [150, 150, 150]): PixelImage {
   const width = 100;
@@ -28,7 +30,7 @@ function image(skin: [number, number, number], bg: [number, number, number] = [1
   return { width, height, data };
 }
 
-const input = { analysisId: '6f1c1f4e-8b0e-4c35-9e6d-9a1b2c3d4e5f', imageUri: 'file:///p.jpg', width: 1024, height: 1280, storagePath: 'u/a/original.jpg' };
+const input = { analysisId: '6f1c1f4e-8b0e-4c35-9e6d-9a1b2c3d4e5f', image: new Blob(['jpeg'], { type: 'image/jpeg' }), width: 1024, height: 1280, storagePath: 'u/a/original.jpg' };
 const goodSampler = async () => image([198, 150, 120]);
 
 const validResponse = {
@@ -40,7 +42,9 @@ const validResponse = {
   model: 'claude-opus-5-5',
 };
 
-beforeEach(() => invoke.mockReset());
+beforeEach(() => {
+  invoke.mockReset();
+});
 
 describe('remoteAnalysisResponseSchema', () => {
   it('accepts a valid response and defaults optional arrays', () => {
@@ -97,7 +101,9 @@ describe('RemoteColorAnalysisProvider', () => {
   });
 
   it('propagates server errors unchanged', async () => {
-    invoke.mockRejectedValue(new AppError('quota_exceeded', 'Daily limit reached.'));
+    invoke.mockImplementation(async () => {
+      throw new AppError('quota_exceeded', 'Daily limit reached.');
+    });
     await expect(new RemoteColorAnalysisProvider(goodSampler).analyze(input)).rejects.toMatchObject({ code: 'quota_exceeded' });
   });
 });

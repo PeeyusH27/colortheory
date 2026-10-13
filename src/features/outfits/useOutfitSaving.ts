@@ -1,6 +1,5 @@
 import { toast } from '@/components/ui/Toast';
 import { useRemoveSavedOutfit, useSaveOutfit, useSavedOutfits } from '@/features/data/queries';
-import { haptics } from '@/lib/haptics';
 import type { Outfit } from '@/types/outfits';
 import { friendlyError } from '@/utils/errors';
 
@@ -22,7 +21,6 @@ export function useOutfitSaving(analysisId: string | null, isDemo: boolean) {
 
   const toggle = (outfit: Outfit) => {
     const existing = savedFor(outfit.id);
-    haptics.selection();
     if (existing) {
       remove.mutate(existing.id, {
         onSuccess: () => toast.show('Removed from your wardrobe'),

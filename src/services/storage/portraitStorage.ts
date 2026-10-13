@@ -1,6 +1,3 @@
-import { File, UploadType } from 'expo-file-system';
-import { Platform } from 'react-native';
-
 import { config } from '@/constants/config';
 import { getAccessToken, getSupabase } from '@/services/supabase/client';
 import { AppError } from '@/utils/errors';
@@ -39,59 +36,61 @@ function uploadErrorFor(status: number, body: string): AppError {
 }
 
 /**
- * Uploads a local JPEG with byte-level progress, authenticated as the current user (RLS applies).
- * Uses the native upload task on iOS/Android; falls back to supabase-js on web.
+ * Uploads the working JPEG with byte-level progress, authenticated as the current user (RLS
+ * applies). Uses XMLHttpRequest because `fetch` cannot report upload progress. The access token
+ * is read from the Supabase client for this request only and is never stored.
  */
 export async function uploadPortrait(options: {
   userId: string;
   analysisId: string;
-  fileUri: string;
+  blob: Blob;
   onProgress?: (fraction: number) => void;
   signal?: AbortSignal;
 }): Promise<string> {
   const path = portraitPath(options.userId, options.analysisId);
   if (!config.supabase) throw new AppError('not_configured', 'Cloud storage is not configured.');
-
-  if (Platform.OS === 'web') {
-    const blob = await (await fetch(options.fileUri)).blob();
-    const { error } = await getSupabase().storage.from(BUCKETS.portraits).upload(path, blob, { contentType: 'image/jpeg', upsert: false });
-    if (error) throw new AppError('upload_failed', 'Your portrait wasn’t uploaded.', { cause: error });
-    options.onProgress?.(1);
-    return path;
-  }
-
+  if (options.signal?.aborted) throw new AppError('cancelled', 'Upload cancelled.');
   const token = await getAccessToken();
-  const file = new File(options.fileUri);
-  const task = file.createUploadTask(`${config.supabase.url}/storage/v1/object/${BUCKETS.portraits}/${encodePath(path)}`, {
-    httpMethod: 'POST',
-    uploadType: UploadType.BINARY_CONTENT,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      apikey: config.supabase.key,
-      'Content-Type': 'image/jpeg',
-      'x-upsert': 'false',
-      'cache-control': 'max-age=3600',
-    },
-    // Foreground session: the JS promise and progress callbacks must stay attached to this screen.
-    sessionType: 'foreground',
-    signal: options.signal,
-    onProgress: ({ bytesSent, totalBytes }) => {
-      if (totalBytes > 0) options.onProgress?.(Math.min(1, bytesSent / totalBytes));
-    },
+  const url = `${config.supabase.url}/storage/v1/object/${BUCKETS.portraits}/${encodePath(path)}`;
+  const apiKey = config.supabase.key;
+
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const onAbort = () => xhr.abort();
+    const cleanup = () => options.signal?.removeEventListener('abort', onAbort);
+    xhr.open('POST', url);
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.setRequestHeader('apikey', apiKey);
+    xhr.setRequestHeader('Content-Type', 'image/jpeg');
+    xhr.setRequestHeader('x-upsert', 'false');
+    xhr.setRequestHeader('cache-control', 'max-age=3600');
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) options.onProgress?.(Math.min(1, event.loaded / event.total));
+    };
+    xhr.onload = () => {
+      cleanup();
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(uploadErrorFor(xhr.status, xhr.responseText));
+    };
+    xhr.onerror = () => {
+      cleanup();
+      reject(new AppError('network', 'Your portrait wasn’t uploaded. Check your connection and try again.'));
+    };
+    xhr.ontimeout = () => {
+      cleanup();
+      reject(new AppError('timeout', 'The upload timed out.'));
+    };
+    xhr.onabort = () => {
+      cleanup();
+      reject(new AppError('cancelled', 'Upload cancelled.'));
+    };
+    xhr.timeout = 120_000;
+    options.signal?.addEventListener('abort', onAbort, { once: true });
+    xhr.send(options.blob);
   });
 
-  try {
-    const result = await task.uploadAsync();
-    if (result.status < 200 || result.status >= 300) throw uploadErrorFor(result.status, result.body);
-    options.onProgress?.(1);
-    return path;
-  } catch (error) {
-    if (options.signal?.aborted) throw new AppError('cancelled', 'Upload cancelled.');
-    if (error instanceof AppError) throw error;
-    throw new AppError('upload_failed', 'Your portrait wasn’t uploaded.', { cause: error });
-  } finally {
-    task.release();
-  }
+  options.onProgress?.(1);
+  return path;
 }
 
 export async function createSignedUrl(bucket: Bucket, path: string, expiresIn = SIGNED_URL_TTL_SECONDS): Promise<string> {

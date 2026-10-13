@@ -1,29 +1,27 @@
-import { router } from 'expo-router';
-import { Sparkles } from 'lucide-react-native';
+'use client';
+
+import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
-import { FlatList, StyleSheet, useWindowDimensions, View } from 'react-native';
-import Animated from 'react-native-reanimated';
 
 import { CombinationCard } from '@/components/colors/CombinationCard';
-import { SectionHeader } from '@/components/layout/SectionHeader';
+import { SectionHeader } from '@/components/layout/PageHeader';
 import { DrapePreview } from '@/components/outfits/DrapePreview';
 import { OutfitCard } from '@/components/outfits/OutfitCard';
-import { OutfitCarousel } from '@/components/outfits/OutfitCarousel';
 import { ProvenanceBadge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { cx } from '@/components/ui/cx';
 import { InlineAlert } from '@/components/ui/InlineAlert';
-import { PressableScale } from '@/components/ui/PressableScale';
+import { Rail, RailItem } from '@/components/ui/Rail';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
-import { Text } from '@/components/ui/Text';
+import { routes } from '@/lib/routes';
 import { usePreferencesStore } from '@/store/preferencesStore';
-import { palette } from '@/theme/colors';
-import { enterUp } from '@/theme/motion';
-import { layout, spacing } from '@/theme/spacing';
+import { staggerStyle } from '@/theme/motion';
 import type { ColorAnalysisResult } from '@/types/domain';
 import type { Outfit } from '@/types/outfits';
 
 import { recommendOutfits } from './recommendOutfits';
-import { shareOutfit } from './share';
 import { useOutfitSaving } from './useOutfitSaving';
+import { useShare } from './useShareOutfit';
 
 interface OutfitGalleryViewProps {
   result: ColorAnalysisResult;
@@ -39,151 +37,147 @@ interface OutfitGalleryViewProps {
  * colours, then outfits built around the selected colour, then full combinations.
  */
 export function OutfitGalleryView({ result, analysisId, portraitUri, initialHex = null, editorial = false }: OutfitGalleryViewProps) {
-  const { width } = useWindowDimensions();
   const [selectedHex, setSelectedHex] = useState<string | null>(initialHex);
   const [visual, setVisual] = useState<'flatlay' | 'drape'>('flatlay');
   const addRecent = usePreferencesStore((s) => s.addRecentlyViewed);
   const saving = useOutfitSaving(analysisId, result.isDemo);
+  const share = useShare();
 
   const colors = [...result.recommendedColors, ...result.experimentalColors];
-  const selected = colors.find((c) => c.hex === selectedHex) ?? null;
-  const focused = recommendOutfits(result, { selectedHex, limit: 10 });
+  const selected = colors.find((c) => c.hex.toUpperCase() === selectedHex?.toUpperCase()) ?? null;
+  const focused = recommendOutfits(result, { selectedHex: selected?.hex ?? null, limit: 10 });
   const looks = recommendOutfits(result, { limit: 8, includeExperimental: false });
-  const panelW = Math.min(118, (width - layout.screenPaddingX * 2) / 3.2);
-  const gridW = Math.floor((Math.min(width, layout.maxContentWidth) - layout.screenPaddingX * 2 - spacing[4]) / 2);
-
-  const open = (o: Outfit) => {
-    addRecent({ kind: 'outfit', id: o.id, label: o.name, hex: o.mainColor.hex });
-    router.push({ pathname: '/outfit/[outfitId]', params: { outfitId: o.id, analysisId: analysisId ?? 'editorial' } });
-  };
+  const recordOpen = (o: Outfit) => addRecent({ kind: 'outfit', id: o.id, label: o.name, hex: o.mainColor.hex });
 
   return (
-    <View>
-      <View style={styles.gutter}>
-        <View style={styles.badges}>
-          <ProvenanceBadge kind={result.isDemo ? 'demo' : 'drape'} />
-          {editorial ? (
-            <Text variant="caption" tone="secondary">
-              Sample palette — analyse your look to personalise.
-            </Text>
-          ) : null}
-        </View>
-        <SectionHeader index="01" title="See it on you" subtitle={portraitUri ? 'Your photo with a colour drape across the shoulders — the way a stylist holds fabric up to your face.' : 'Colour drapes on an illustrated figure. Add a portrait to see them on you.'} />
-      </View>
-      <FlatList
-        horizontal
-        data={result.recommendedColors.slice(0, 6)}
-        keyExtractor={(c) => c.id}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.hList}
-        renderItem={({ item, index }) => (
-          <Animated.View entering={enterUp(index)}>
-            <PressableScale
-              onPress={() => setSelectedHex(item.hex === selectedHex ? null : item.hex)}
-              haptic="selection"
-              accessibilityRole="button"
-              accessibilityLabel={`Show outfits in ${item.name}`}
-              accessibilityState={{ selected: item.hex === selectedHex }}>
-              <DrapePreview
-                hex={item.hex}
-                colorName={item.name}
-                portraitUri={portraitUri}
-                width={panelW}
-                height={panelW * 1.45}
-                style={[styles.panel, item.hex === selectedHex && styles.panelSelected]}
-              />
-              <Text variant="caption" style={styles.panelName} numberOfLines={1}>
-                {item.name}
-              </Text>
-              <Text variant="hex" tone="secondary" style={styles.panelHex}>
-                {item.hex}
-              </Text>
-            </PressableScale>
-          </Animated.View>
-        )}
-      />
+    <div className="flex flex-col gap-14">
+      <section aria-labelledby="drapes-title" className="flex flex-col gap-5">
+        <div className="page flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <ProvenanceBadge kind={result.isDemo ? 'demo' : 'drape'} />
+            {editorial ? <p className="type-caption text-muted">Sample palette — analyse your look to personalise.</p> : null}
+          </div>
+          <SectionHeader
+            id="drapes-title"
+            eyebrow="Nº 01"
+            title="See it on you"
+            description={
+              portraitUri
+                ? 'Your photo with a colour drape across the shoulders — the way a stylist holds fabric up to your face. Choose one to filter the looks below.'
+                : 'Colour drapes on an illustrated figure. Add a portrait to see them on you. Choose one to filter the looks below.'
+            }
+          />
+        </div>
+        <Rail label="Colour drapes" itemWidth="8rem" wideItemWidth="10rem">
+          {result.recommendedColors.slice(0, 6).map((c, i) => {
+            const active = c.hex === selected?.hex;
+            return (
+              <RailItem key={c.id}>
+                <button
+                  type="button"
+                  style={staggerStyle(i)}
+                  onClick={() => setSelectedHex(active ? null : c.hex)}
+                  aria-pressed={active}
+                  aria-label={`Show outfits in ${c.name}`}
+                  className="flex w-full animate-enter-up flex-col gap-1.5 text-left">
+                  <DrapePreview
+                    hex={c.hex}
+                    colorName={c.name}
+                    portraitUri={portraitUri}
+                    aspect={1.45}
+                    className={cx('editorial-frame transition-transform duration-200', active && 'outline-[3px] outline-offset-2 outline-coral')}
+                  />
+                  <span className="type-caption truncate text-navy">{c.name}</span>
+                  <span className="type-hex -mt-1 text-[0.6875rem] text-muted">{c.hex}</span>
+                </button>
+              </RailItem>
+            );
+          })}
+        </Rail>
+      </section>
 
-      <View style={[styles.gutter, styles.section]}>
-        <SectionHeader index="02" title={selected ? `Looks in ${selected.name}` : 'Looks for your palette'} actionLabel={selected ? 'All colours' : undefined} onAction={() => setSelectedHex(null)} />
-        <SegmentedControl
-          options={[
-            { value: 'flatlay', label: 'Outfit' },
-            { value: 'drape', label: 'Colour on me' },
-          ]}
-          value={visual}
-          onChange={setVisual}
-          accessibilityLabel="Preview style"
-        />
-      </View>
-      <View style={styles.carousel}>
-        <OutfitCarousel
-          outfits={focused}
-          visual={visual}
-          portraitUri={portraitUri}
-          savedIds={saving.savedIds}
-          onOpen={open}
-          onToggleSave={editorial ? undefined : saving.toggle}
-          onShare={(o) => void shareOutfit(o)}
-        />
-      </View>
-
-      <View style={[styles.gutter, styles.section]}>
-        <SectionHeader index="03" title="Colour combinations" subtitle="Proportions hint at how much of each to wear." />
-      </View>
-      <FlatList
-        horizontal
-        data={result.combinations}
-        keyExtractor={(c) => c.id}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.hList}
-        renderItem={({ item }) => <CombinationCard name={item.name} hexes={item.hexes} note={item.note} width={220} />}
-      />
-
-      <View style={[styles.gutter, styles.section]}>
-        <SectionHeader index="04" title="Complete looks" />
-        <View style={styles.grid}>
-          {looks.map((o, i) => (
-            <Animated.View key={o.id} entering={enterUp(i)}>
+      <section aria-labelledby="looks-title" className="flex flex-col gap-5">
+        <div className="page flex flex-col gap-4">
+          <SectionHeader
+            id="looks-title"
+            eyebrow="Nº 02"
+            title={selected ? `Looks in ${selected.name}` : 'Looks for your palette'}
+            action={
+              selected ? (
+                <Button variant="ghost" size="sm" onClick={() => setSelectedHex(null)}>
+                  All colours
+                </Button>
+              ) : undefined
+            }
+          />
+          <SegmentedControl
+            label="Preview style"
+            className="self-start"
+            options={[
+              { value: 'flatlay', label: 'Outfit' },
+              { value: 'drape', label: 'Colour on me' },
+            ]}
+            value={visual}
+            onChange={setVisual}
+          />
+        </div>
+        <Rail label={selected ? `Looks in ${selected.name}` : 'Looks for your palette'} itemWidth="15.5rem" wideItemWidth="17rem">
+          {focused.map((o) => (
+            <RailItem key={o.id}>
               <OutfitCard
                 outfit={o}
-                width={gridW}
+                href={routes.outfit(analysisId, o.id)}
+                visual={visual}
+                portraitUri={portraitUri}
                 saved={saving.savedIds.has(o.id)}
-                onPress={() => open(o)}
+                onOpen={() => recordOpen(o)}
+                onToggleSave={editorial ? undefined : () => saving.toggle(o)}
+                onShare={() => share.outfit(o)}
+              />
+            </RailItem>
+          ))}
+        </Rail>
+      </section>
+
+      <section aria-labelledby="combos-title" className="flex flex-col gap-5">
+        <SectionHeader id="combos-title" className="page" eyebrow="Nº 03" title="Colour combinations" description="Proportions hint at how much of each to wear." />
+        <Rail label="Colour combinations" itemWidth="14rem" wideItemWidth="16rem">
+          {result.combinations.map((c) => (
+            <RailItem key={c.id}>
+              <CombinationCard name={c.name} hexes={c.hexes} note={c.note} className="h-full" />
+            </RailItem>
+          ))}
+        </Rail>
+      </section>
+
+      <section aria-labelledby="complete-title" className="page flex flex-col gap-5">
+        <SectionHeader id="complete-title" eyebrow="Nº 04" title="Complete looks" />
+        <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+          {looks.map((o, i) => (
+            <li key={o.id} className="animate-enter-up" style={staggerStyle(i)}>
+              <OutfitCard
+                outfit={o}
+                href={routes.outfit(analysisId, o.id)}
+                saved={saving.savedIds.has(o.id)}
+                onOpen={() => recordOpen(o)}
                 onToggleSave={editorial ? undefined : () => saving.toggle(o)}
               />
-            </Animated.View>
+            </li>
           ))}
-        </View>
+        </ul>
         <InlineAlert
           tone="info"
           title="Want to see the real thing?"
-          message="Open any outfit to request an AI try-on preview. It’s generated from your portrait only with your consent, and clearly labelled as an approximation."
-          style={styles.aiNote}
           action={
-            <View style={styles.aiRow}>
-              <Sparkles size={14} color={palette.denim} />
-              <Text variant="caption" tone="accent">
-                Colour drapes and illustrations above are not AI-generated.
-              </Text>
-            </View>
-          }
-        />
-      </View>
-    </View>
+            <p className="type-caption flex items-center gap-1.5 text-denim">
+              <Sparkles aria-hidden size={14} />
+              Colour drapes and illustrations above are not AI-generated.
+            </p>
+          }>
+          Open any outfit to request an AI try-on preview. It’s generated from your portrait only with your consent, and clearly labelled as
+          an approximation.
+        </InlineAlert>
+      </section>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  gutter: { paddingHorizontal: layout.screenPaddingX },
-  badges: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], flexWrap: 'wrap', marginBottom: spacing[5] },
-  hList: { paddingHorizontal: layout.screenPaddingX, gap: spacing[3], paddingRight: layout.screenPaddingX + 4, paddingBottom: spacing[2] },
-  panel: { borderWidth: 1.5, borderColor: palette.navy },
-  panelSelected: { borderWidth: 3, borderColor: palette.coral },
-  panelName: { marginTop: spacing[2] },
-  panelHex: { fontSize: 10, lineHeight: 12 },
-  section: { marginTop: layout.sectionGap, gap: spacing[3] },
-  carousel: { marginTop: spacing[4] },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[4] },
-  aiNote: { marginTop: spacing[6] },
-  aiRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[1], marginTop: spacing[1] },
-});

@@ -1,61 +1,39 @@
-import type { LucideIcon } from 'lucide-react-native';
-import { CircleAlert, CircleCheck, Info, TriangleAlert } from 'lucide-react-native';
+import { CircleAlert, CircleCheck, Info, TriangleAlert, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, palette } from '@/theme/colors';
-import { spacing } from '@/theme/spacing';
+import { cx } from './cx';
 
-import { Text } from './Text';
+type Tone = 'info' | 'warning' | 'error' | 'success' | 'demo';
 
-type Tone = 'info' | 'success' | 'warning' | 'error';
-
-const TONES: Record<Tone, { bg: string; fg: string; icon: LucideIcon }> = {
-  info: { bg: colors.status.infoSoft, fg: colors.status.info, icon: Info },
-  success: { bg: colors.status.successSoft, fg: colors.status.success, icon: CircleCheck },
-  warning: { bg: colors.status.warningSoft, fg: colors.status.warning, icon: TriangleAlert },
-  error: { bg: colors.status.errorSoft, fg: colors.status.error, icon: CircleAlert },
+const TONES: Record<Tone, { box: string; icon: LucideIcon }> = {
+  info: { box: 'bg-mist text-navy border-denim/25', icon: Info },
+  warning: { box: 'bg-warning-soft text-[#5c3700] border-warning/30', icon: TriangleAlert },
+  error: { box: 'bg-error-soft text-[#7a1810] border-error/30', icon: CircleAlert },
+  success: { box: 'bg-success-soft text-[#124a2e] border-success/30', icon: CircleCheck },
+  demo: { box: 'bg-saffron/25 text-ink border-saffron', icon: Info },
 };
 
 interface InlineAlertProps {
   tone?: Tone;
   title?: string;
-  message: ReactNode;
+  children?: ReactNode;
   action?: ReactNode;
-  style?: StyleProp<ViewStyle>;
+  className?: string;
+  /** `alert` interrupts screen readers; use only for new errors the user must notice now. */
+  role?: 'alert' | 'status' | 'note';
 }
 
-/** In-flow message (form errors, configuration notices, quality warnings). Announced politely. */
-export function InlineAlert({ tone = 'info', title, message, action, style }: InlineAlertProps) {
+export function InlineAlert({ tone = 'info', title, children, action, className, role = 'note' }: InlineAlertProps) {
   const t = TONES[tone];
   const Icon = t.icon;
   return (
-    <View
-      accessibilityRole={tone === 'error' ? 'alert' : undefined}
-      accessibilityLiveRegion="polite"
-      style={[styles.box, { backgroundColor: t.bg, borderLeftColor: t.fg }, style]}>
-      <Icon size={18} color={t.fg} strokeWidth={2.2} style={styles.icon} />
-      <View style={styles.copy}>
-        {title ? (
-          <Text variant="label" color={palette.navy}>
-            {title}
-          </Text>
-        ) : null}
-        {typeof message === 'string' ? (
-          <Text variant="bodyS" color={palette.navy}>
-            {message}
-          </Text>
-        ) : (
-          message
-        )}
-        {action}
-      </View>
-    </View>
+    <div role={role} className={cx('flex gap-3 rounded-md border px-4 py-3', t.box, className)}>
+      <Icon aria-hidden size={18} strokeWidth={2} className="mt-0.5 shrink-0" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        {title ? <p className="type-label">{title}</p> : null}
+        {children ? <div className="type-body-s">{children}</div> : null}
+        {action ? <div className="mt-1">{action}</div> : null}
+      </div>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  box: { flexDirection: 'row', gap: spacing[3], padding: spacing[3], borderLeftWidth: 4 },
-  icon: { marginTop: 2 },
-  copy: { flex: 1, gap: spacing[1] },
-});

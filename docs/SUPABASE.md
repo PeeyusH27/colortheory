@@ -1,7 +1,7 @@
 # Supabase backend
 
-The app runs without Supabase (on-device + demo mode). Connect a project to get accounts,
-cross-device sync, private cloud portraits, cloud analysis and AI previews.
+The website runs without Supabase (in-browser analysis + demo mode). Connect a project to get
+accounts, cross-device sync, private cloud portraits, cloud analysis and AI previews.
 
 ```text
 supabase/
@@ -33,15 +33,38 @@ npx supabase db push                 # applies supabase/migrations
 Then in the dashboard:
 
 1. **Project Settings → API**: copy the URL and the **publishable** key (or legacy anon key) into
-   `.env.local` (see `.env.example`). Never copy a secret/service-role key into the app.
+   `.env.local` as `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (see
+   `.env.example`). Never copy a secret/service-role key into a `NEXT_PUBLIC_*` variable.
 2. **Authentication → URL Configuration**
-   - Site URL: `colortheory://`
-   - Redirect URLs: `colortheory://**` and, for development in Expo Go, `exp://**`.
-3. **Authentication → Providers → Email**: keep "Confirm email" on (the app handles it).
+   - Site URL: `http://localhost:3000` in development, your production origin later.
+   - Redirect URLs: `http://localhost:3000/**` and `https://<your-domain>/**`.
+3. **Authentication → Providers → Email**: keep "Confirm email" on (the site handles it).
    Password policy is 8+ characters with letters and digits (mirrored in `config.toml` and the
-   app's Zod schema).
+   sign-up form's Zod schema).
 
-Restart Metro after editing env: `npx expo start --clear`.
+Restart `npm run dev` after editing env (values are inlined at build time).
+
+### Sessions, cookies and email links
+
+- The browser client (`@supabase/ssr`) keeps the session in first-party cookies, never in React
+  state or `localStorage`. `src/proxy.ts` refreshes the token on each request and makes
+  optimistic redirects; Row Level Security remains the real boundary.
+- Email links return to `/auth/callback` (a route handler). It exchanges a PKCE `?code=` — or
+  verifies a `?token_hash=&type=` — on the server and sets the session cookie on the redirect.
+  Redirect targets are restricted to same-site paths.
+- PKCE codes only work in the browser that started the flow. To make sign-up confirmation and
+  password reset work when the link is opened in another browser or on another device, switch
+  the email templates (Authentication → Email Templates) to the token-hash format:
+
+  ```html
+  <!-- Confirm signup -->
+  <a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email&next=/discover">Confirm your email</a>
+  <!-- Reset password -->
+  <a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery">Reset your password</a>
+  ```
+
+  With the default templates, a sign-up link opened elsewhere still confirms the address; the
+  site then asks the person to sign in with their password.
 
 ### Local stack (optional, needs Docker)
 
@@ -50,8 +73,9 @@ npx supabase start        # Postgres, Auth, Storage, Edge Runtime; applies migra
 npx supabase status       # prints the local URL + publishable key for .env.local
 ```
 
-A physical phone or Android emulator can't reach `127.0.0.1`: use your computer's LAN IP
-(Android emulator: `10.0.2.2`).
+A browser on the same computer reaches the local stack at `http://127.0.0.1:54321`. To test from
+a phone, use your computer's LAN IP in `NEXT_PUBLIC_SUPABASE_URL` and add the phone-facing origin
+to the redirect URLs.
 
 ## 2. Schema
 
@@ -66,7 +90,7 @@ A physical phone or Android emulator can't reach `127.0.0.1`: use your computer'
 
 Design rules:
 
-- `user_id` **defaults to `auth.uid()`** — the app never sends it.
+- `user_id` **defaults to `auth.uid()`** — the site never sends it.
 - **Composite foreign keys** `(child.parent_id, user_id) → parent(id, user_id)` make it
   impossible to attach a row to another user's data, even with a hand-crafted request.
 - JSONB only for genuinely flexible payloads (colour arrays, the analysis result).
@@ -111,22 +135,23 @@ only inside Edge Functions.
 | `outfit-previews` | no | `{user_id}/{analysis_id}/{preview_id}.png` | read/delete own; **no client upload** (Edge Function only) |
 | `garment-references` | no | `{template_id}/{color_id}.png` | none (Edge Function only) — optional licensed garment photos |
 
-The app displays private images with signed URLs that expire in 10 minutes (refreshed by
+The site displays private images with signed URLs that expire in 10 minutes (refreshed by
 TanStack Query before expiry) and gives providers 5-minute signed URLs. Nothing is public.
+Uploads use the user's own access token (XHR, for progress), so Storage policies apply.
 
 ### Portrait lifecycle (temporary images)
 
 | Copy | Where | Deleted when |
 |---|---|---|
-| Camera/picker original | app cache | immediately after resizing (re-encoding also strips EXIF/GPS) |
-| Working copy (≤1280 px JPEG) | app cache | after the analysis completes, or when the user cancels/discards |
-| Analysis thumbnail (256 px) | memory only | the temporary file is deleted right after decoding |
-| Device copy | app documents `portraits/` | user deletes the portrait/analysis/history/account; "Clean up unused files" removes orphans |
-| Cloud copy | `portraits` bucket | user deletes it; **automatically right after a cloud analysis if the user chose "keep on this device"**; account deletion; `cleanup-orphans` for failed sessions |
+| Camera frame / chosen file | memory only | immediately after resizing on a canvas (re-encoding also strips EXIF/GPS) |
+| Working copy (≤1280 px JPEG Blob) | memory only | after the analysis completes, when the user cancels/discards, or on reload |
+| Analysis thumbnail (256 px) | memory only | right after the pixels are read |
+| Browser copy | IndexedDB (`colortheory` → `portraits`), this origin only | user deletes the portrait/analysis/history/account; "Clean up unused images" removes orphans; clearing site data |
+| Cloud copy | `portraits` bucket | user deletes it; **automatically right after a cloud analysis unless the user ticked "Keep it in my private cloud storage"**; account deletion; `cleanup-orphans` for failed sessions |
 | Provider copy | FASHN CDN | FASHN deletes outputs after ~3 days; we copy results into our bucket immediately |
 | AI preview | `outfit-previews` bucket | with its analysis (cascade + storage delete), or account deletion |
 
-Uploads happen only after an explicit consent tap on the confirmation screen (or in outfit
+Uploads happen only after an explicit consent tick on the confirmation page (or in outfit
 details for AI previews) — never because camera permission was granted.
 
 ## 5. Edge Functions
@@ -142,12 +167,16 @@ npx supabase functions deploy cleanup-orphans --no-verify-jwt
 
 Local: `npx supabase functions serve` (reads `supabase/functions/.env`).
 
-Then set in the app's `.env.local`:
+Then set in the site's `.env.local`:
 
 ```bash
-EXPO_PUBLIC_ANALYSIS_PROVIDER=remote     # offers "Cloud analysis" to signed-in users
-EXPO_PUBLIC_OUTFIT_GENERATION=remote     # real AI previews for cloud-stored portraits
+NEXT_PUBLIC_ANALYSIS_PROVIDER=remote     # offers "Cloud analysis" to signed-in users
+NEXT_PUBLIC_OUTFIT_GENERATION=remote     # real AI previews for cloud-stored portraits
 ```
+
+The browser calls the functions directly (`supabase.functions.invoke`). `_shared/http.ts`
+answers CORS preflights for every header the Supabase SDK sends; requests authenticate with a
+bearer token, never cookies, so allowing any origin does not enable cross-site request forgery.
 
 | Function | Auth | Does |
 |---|---|---|
@@ -198,8 +227,8 @@ fabricated AI previews, cascades, account deletion).
 
 1. Create two users (Authentication → Users → Add user), confirm both.
 2. Run `npm run test:integration` with `SUPABASE_TEST_URL`, `SUPABASE_TEST_PUBLISHABLE_KEY` and
-   both users' credentials (see `jest.integration.config.js`). It signs in as each user with the
-   publishable key — exactly the app's privileges.
+   both users' credentials (see `vitest.integration.config.mts`). It signs in as each user with
+   the publishable key — exactly the website's privileges.
 3. Manual spot check in the SQL editor — impersonate each user:
 
    ```sql
@@ -212,8 +241,9 @@ fabricated AI previews, cascades, account deletion).
      values ('<A-analysis-id>', 'x', '[{"name":"Navy","hex":"#172A46"}]'); -- RLS error
    ```
 
-4. In the app: sign in as A, run a cloud analysis; sign in as B on another device — A's history,
-   palettes and portraits never appear; signed URLs from A's session stop working after expiry.
+4. On the site: sign in as A, run a cloud analysis; sign in as B in another browser — A's
+   history, palettes and portraits never appear; signed URLs from A's session stop working after
+   expiry.
 
 ## 7. If you add an Express (or other) backend later
 

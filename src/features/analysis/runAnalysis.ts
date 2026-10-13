@@ -3,7 +3,7 @@ import { useAuthStore } from '@/features/auth/authStore';
 import { recommendOutfits } from '@/features/outfits/recommendOutfits';
 import { getColorAnalysisProvider, isQualityGateError, type AnalysisStage } from '@/services/color-analysis';
 import { getRepository } from '@/services/data';
-import { persistPortraitLocally } from '@/services/storage/localFiles';
+import { deleteLocalPortrait, saveLocalPortrait } from '@/services/storage/localPortraits';
 import { BUCKETS, removeObjects, uploadPortrait } from '@/services/storage/portraitStorage';
 import { throwIfAborted } from '@/utils/async';
 import { AppError, toAppError } from '@/utils/errors';
@@ -37,6 +37,7 @@ export async function runAnalysis(options: {
   const provider = getColorAnalysisProvider(request.method);
   const id = createId();
   let created = false;
+  let localCopy: string | null = null;
   let uploadedPath: string | null = null;
 
   if (request.upload) {
@@ -52,7 +53,8 @@ export async function runAnalysis(options: {
     store.enterStage('preparing');
     // Keep a private on-device copy unless the user chose to store this portrait in the cloud.
     const keepLocal = !(request.upload && request.keepInCloud);
-    const localUri = keepLocal ? persistPortraitLocally(portrait.uri, id) : null;
+    const localUri = keepLocal ? await saveLocalPortrait(id, portrait.blob) : null;
+    localCopy = localUri;
     await repo.createAnalysis({
       id,
       provider: provider.id,
@@ -68,7 +70,7 @@ export async function runAnalysis(options: {
       uploadedPath = await uploadPortrait({
         userId: user.id,
         analysisId: id,
-        fileUri: portrait.uri,
+        blob: portrait.blob,
         signal,
         onProgress: (f) => useAnalysisStore.getState().setUploadProgress(f),
       });
@@ -76,7 +78,7 @@ export async function runAnalysis(options: {
     }
 
     const result = await provider.analyze(
-      { analysisId: id, imageUri: portrait.uri, width: portrait.width, height: portrait.height, storagePath: uploadedPath },
+      { analysisId: id, image: portrait.blob, width: portrait.width, height: portrait.height, storagePath: uploadedPath },
       { signal, acceptLowQuality, onProgress: (e) => useAnalysisStore.getState().enterStage(e.stage) },
     );
     throwIfAborted(signal);
@@ -98,6 +100,7 @@ export async function runAnalysis(options: {
     return id;
   } catch (error) {
     if (created) await repo.deleteAnalysis(id).catch(() => undefined);
+    else await deleteLocalPortrait(localCopy);
     if (isQualityGateError(error)) {
       store.qualityGate(error.report);
       throw error;

@@ -10,7 +10,7 @@ import type { ColorAnalysisResult, VisibleCharacteristics } from '@/types/domain
 import { throwIfAborted } from '@/utils/async';
 
 import { QualityGateError } from './QualityGateError';
-import { samplePixels } from './pixelSampler';
+import { samplePixels, type PixelSource } from './pixelSampler';
 import type { AnalyzeOptions, ColorAnalysisInput, ColorAnalysisProvider } from './types';
 
 /** Neutral mid-point used only if the user overrides a blocking "no face found" warning. */
@@ -31,7 +31,7 @@ export function describeSample(c: VisibleCharacteristics, analysis: PixelAnalysi
 
 /**
  * Real, private, offline analysis: decodes a small thumbnail of the portrait on the device,
- * checks quality and estimates visible characteristics. No image leaves the phone.
+ * checks quality and estimates visible characteristics. No image leaves the browser.
  */
 export class OnDeviceColorAnalysisProvider implements ColorAnalysisProvider {
   readonly id = 'on-device' as const;
@@ -39,13 +39,13 @@ export class OnDeviceColorAnalysisProvider implements ColorAnalysisProvider {
   readonly isDemo = false;
   readonly requiresUpload = false;
 
-  constructor(private readonly sampler: (uri: string) => Promise<PixelImage> = samplePixels) {}
+  constructor(private readonly sampler: (source: PixelSource) => Promise<PixelImage> = samplePixels) {}
 
   async analyze(input: ColorAnalysisInput, options: AnalyzeOptions = {}): Promise<ColorAnalysisResult> {
     const { signal, onProgress, acceptLowQuality } = options;
 
     onProgress?.({ stage: 'checking_quality' });
-    const pixels = await this.sampler(input.imageUri);
+    const pixels = await this.sampler(input.image);
     throwIfAborted(signal);
     const analysis = analyzePixels(pixels, { width: input.width, height: input.height });
     const blocking = analysis.quality.issues.some((i) => i.severity === 'blocking');

@@ -11,8 +11,8 @@ export type AnalysisStage = 'preparing' | 'uploading' | 'checking_quality' | 'es
 
 export interface ColorAnalysisInput {
   analysisId: string;
-  /** Local file URI of the (already resized) portrait. */
-  imageUri: string;
+  /** The working portrait (already resized, metadata stripped), held in memory. */
+  image: Blob;
   width: number;
   height: number;
   /** Private storage path, when the portrait was uploaded with consent (remote provider only). */

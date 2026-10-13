@@ -6,14 +6,14 @@ import { analyzePixels } from './imageAnalysis';
 
 /**
  * Runs the on-device quality check as soon as a portrait is confirmed, so the user sees lighting
- * problems *before* deciding to analyse or upload. Pure local computation — nothing leaves the
- * device.
+ * problems *before* deciding to analyse or upload. Pure in-browser computation — nothing leaves
+ * the device.
  */
-export function useQualityPreview(portrait: { uri: string; width: number; height: number } | null) {
+export function useQualityPreview(portrait: { blob: Blob; url: string; width: number; height: number } | null) {
   return useQuery({
-    queryKey: ['quality-preview', portrait?.uri ?? 'none'],
+    queryKey: ['quality-preview', portrait?.url ?? 'none'],
     queryFn: async () => {
-      const pixels = await samplePixels(portrait!.uri);
+      const pixels = await samplePixels(portrait!.blob);
       return analyzePixels(pixels, { width: portrait!.width, height: portrait!.height }).quality;
     },
     enabled: Boolean(portrait),

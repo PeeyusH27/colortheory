@@ -1,13 +1,13 @@
 /**
  * Typed, validated runtime configuration.
  *
- * Only `EXPO_PUBLIC_*` variables reach the app bundle, and Expo inlines them at build time — which
- * means anything here is readable by anyone who downloads the app. Only values that are *meant* to
- * be public belong here (the Supabase URL and publishable/anon key are; RLS protects the data).
+ * Only `NEXT_PUBLIC_*` variables reach the browser, and Next.js inlines them at build time — which
+ * means anything here is readable by anyone who opens the site. Only values that are *meant* to be
+ * public belong here (the Supabase URL and publishable/anon key are; RLS protects the data).
  * Service-role keys, AI provider keys and signing secrets live in Supabase Edge Function secrets.
  *
- * Note: Expo requires each variable to be referenced statically (`process.env.EXPO_PUBLIC_X`);
- * dynamic lookups like `process.env[name]` are not inlined.
+ * Note: Next.js only inlines static references (`process.env.NEXT_PUBLIC_X`); dynamic lookups like
+ * `process.env[name]` are not replaced in the client bundle.
  */
 
 export type AnalysisProviderKind = 'device' | 'mock' | 'remote';
@@ -23,7 +23,7 @@ export interface AppConfig {
   supabase: SupabaseConfig | null;
   analysisProvider: AnalysisProviderKind;
   generationProvider: GenerationProviderKind;
-  /** Whether the "Explore in demo mode" entry point is offered on the welcome screen. */
+  /** Whether the "Explore in demo mode" entry point is offered on the landing and sign-in pages. */
   demoModeEnabled: boolean;
   legal: { privacyUrl: string | null; termsUrl: string | null };
   /** Human-readable configuration problems, surfaced in development UI and the README checks. */
@@ -77,16 +77,16 @@ export function parseConfig(raw: RawEnv, isDev: boolean): AppConfig {
   let supabase: SupabaseConfig | null = null;
 
   if (url || key) {
-    if (!url) issues.push('EXPO_PUBLIC_SUPABASE_URL is missing (a Supabase key was provided).');
-    else if (!isHttpUrl(url)) issues.push('EXPO_PUBLIC_SUPABASE_URL must be an http(s) URL.');
+    if (!url) issues.push('NEXT_PUBLIC_SUPABASE_URL is missing (a Supabase key was provided).');
+    else if (!isHttpUrl(url)) issues.push('NEXT_PUBLIC_SUPABASE_URL must be an http(s) URL.');
     if (!key) {
       issues.push(
-        'EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY (or EXPO_PUBLIC_SUPABASE_ANON_KEY) is missing.',
+        'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (or NEXT_PUBLIC_SUPABASE_ANON_KEY) is missing.',
       );
     } else if (isPrivilegedSupabaseKey(key)) {
       // Refuse to run with a key that bypasses RLS. This is a build mistake, not a runtime state.
       issues.push(
-        'The Supabase key in EXPO_PUBLIC_* is a SECRET/service-role key. Remove it immediately, rotate it in the Supabase dashboard, and use the publishable (anon) key instead.',
+        'The Supabase key in NEXT_PUBLIC_* is a SECRET/service-role key. Remove it immediately, rotate it in the Supabase dashboard, and use the publishable (anon) key instead.',
       );
     }
     if (url && key && isHttpUrl(url) && !isPrivilegedSupabaseKey(key)) {
@@ -99,10 +99,10 @@ export function parseConfig(raw: RawEnv, isDev: boolean): AppConfig {
   if (analysisRaw === 'device' || analysisRaw === 'mock' || analysisRaw === 'remote') {
     analysisProvider = analysisRaw;
   } else {
-    issues.push(`EXPO_PUBLIC_ANALYSIS_PROVIDER="${analysisRaw}" is not one of device | mock | remote.`);
+    issues.push(`NEXT_PUBLIC_ANALYSIS_PROVIDER="${analysisRaw}" is not one of device | mock | remote.`);
   }
   if (analysisProvider === 'remote' && !supabase) {
-    issues.push('EXPO_PUBLIC_ANALYSIS_PROVIDER=remote requires Supabase; falling back to on-device.');
+    issues.push('NEXT_PUBLIC_ANALYSIS_PROVIDER=remote requires Supabase; falling back to on-device.');
     analysisProvider = 'device';
   }
 
@@ -111,16 +111,16 @@ export function parseConfig(raw: RawEnv, isDev: boolean): AppConfig {
   if (generationRaw === 'mock' || generationRaw === 'remote' || generationRaw === 'off') {
     generationProvider = generationRaw;
   } else {
-    issues.push(`EXPO_PUBLIC_OUTFIT_GENERATION="${generationRaw}" is not one of mock | remote | off.`);
+    issues.push(`NEXT_PUBLIC_OUTFIT_GENERATION="${generationRaw}" is not one of mock | remote | off.`);
   }
   if (generationProvider === 'remote' && !supabase) {
-    issues.push('EXPO_PUBLIC_OUTFIT_GENERATION=remote requires Supabase; falling back to mock.');
+    issues.push('NEXT_PUBLIC_OUTFIT_GENERATION=remote requires Supabase; falling back to mock.');
     generationProvider = 'mock';
   }
 
   const demoFlag = blankToUndefined(raw.enableDemoMode);
-  // Demo mode is always available when there is no backend (otherwise the app would be unusable),
-  // and in development builds. Production builds with Supabase hide it unless explicitly enabled.
+  // Demo mode is always available when there is no backend (otherwise the site would be unusable),
+  // and in development. Production builds with Supabase hide it unless explicitly enabled.
   const demoModeEnabled = demoFlag ? demoFlag === 'true' : isDev || !supabase;
 
   return {
@@ -138,19 +138,19 @@ export function parseConfig(raw: RawEnv, isDev: boolean): AppConfig {
 
 export const config: AppConfig = parseConfig(
   {
-    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-    supabasePublishableKey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-    analysisProvider: process.env.EXPO_PUBLIC_ANALYSIS_PROVIDER,
-    generationProvider: process.env.EXPO_PUBLIC_OUTFIT_GENERATION,
-    enableDemoMode: process.env.EXPO_PUBLIC_ENABLE_DEMO_MODE,
-    privacyUrl: process.env.EXPO_PUBLIC_PRIVACY_URL,
-    termsUrl: process.env.EXPO_PUBLIC_TERMS_URL,
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    supabasePublishableKey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    analysisProvider: process.env.NEXT_PUBLIC_ANALYSIS_PROVIDER,
+    generationProvider: process.env.NEXT_PUBLIC_OUTFIT_GENERATION,
+    enableDemoMode: process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE,
+    privacyUrl: process.env.NEXT_PUBLIC_PRIVACY_URL,
+    termsUrl: process.env.NEXT_PUBLIC_TERMS_URL,
   },
-  __DEV__,
+  process.env.NODE_ENV !== 'production',
 );
 
-if (__DEV__ && config.issues.length > 0) {
+if (process.env.NODE_ENV !== 'production' && config.issues.length > 0 && typeof window !== 'undefined') {
   console.warn(`[ColorTheory config]\n- ${config.issues.join('\n- ')}`);
 }
 

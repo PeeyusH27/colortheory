@@ -18,9 +18,9 @@ const AUTH_MESSAGES: Record<string, string> = {
   session_not_found: 'Your session expired. Please sign in again.',
   refresh_token_not_found: 'Your session expired. Please sign in again.',
   flow_state_expired: 'That link has expired. Request a new one.',
-  flow_state_not_found: 'That link was opened on a different device or has already been used. Request a new one here.',
+  flow_state_not_found: 'That link was opened in a different browser or has already been used. Request a new one here.',
   otp_expired: 'That link has expired. Request a new one.',
-  bad_code_verifier: 'That link was opened on a different device. Request a new one from this device.',
+  bad_code_verifier: 'That link was opened in a different browser. Open it in the browser you used to sign up, or request a new one here.',
 };
 
 interface SupabaseLikeError {
